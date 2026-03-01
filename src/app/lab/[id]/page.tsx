@@ -1,77 +1,92 @@
-import { supabase } from "@/lib/supabase";
-import Link from "next/link";
+'use client'
+import { useEffect, useState } from 'react'
+import { supabase } from '@/lib/supabase'
+import Link from 'next/link'
 
-export default async function LabDetail({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  const { id } = await params;
+type Lab = {
+  id: string
+  name: string
+  faculty_name: string | null
+  map_x: number | null
+  map_y: number | null
+  cluster_id: number | null
+}
 
-  const { data: lab } = await supabase
-    .from("labs")
-    .select("*, lab_tags(tag)")
-    .eq("id", id)
-    .single();
+const CLUSTER_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444']
+const CLUSTER_NAMES = ['プラズマ・核融合', '材料・照射', '計測・医療', '安全・システム']
 
-  if (!lab)
-    return (
-      <main className="p-6">
-        <p>研究室が見つかりません</p>
-        <Link href="/" className="text-blue-600 underline">
-          ← マップに戻る
-        </Link>
-      </main>
-    );
+export default function ExplorePage() {
+  const [labs, setLabs] = useState<Lab[]>([])
+  const [selected, setSelected] = useState<Lab | null>(null)
+
+  useEffect(() => {
+    supabase
+      .from('labs')
+      .select('id,name,faculty_name,map_x,map_y,cluster_id')
+      .then(({ data }) => setLabs(data ?? []))
+  }, [])
+
+  const placed = labs.map((lab, i) => ({
+    ...lab,
+    x: lab.map_x ?? 100 + (i % 5) * 130,
+    y: lab.map_y ?? 100 + Math.floor(i / 5) * 120,
+  }))
 
   return (
-    <main className="max-w-2xl mx-auto p-6">
-      <Link href="/" className="text-blue-600 underline text-sm">
-        ← マップに戻る
-      </Link>
-
-      <h1 className="text-2xl font-bold mt-4">{lab.name}</h1>
-      <p className="text-gray-500 text-sm mt-1">{lab.faculty_name}</p>
-
-      {lab.lab_url && (
-        <a
-          href={lab.lab_url}
-          target="_blank"
-          className="text-blue-600 underline text-sm mt-1 block"
-        >
-          研究室HP →
-        </a>
-      )}
-
-      <section className="mt-6">
-        <h2 className="font-semibold text-lg">研究概要</h2>
-        <p className="text-sm mt-2 whitespace-pre-wrap text-gray-700">
-          {lab.summary_text ?? "（未取得）"}
-        </p>
-      </section>
-
-      <section className="mt-6">
-        <h2 className="font-semibold text-lg">タグ</h2>
-        <div className="flex flex-wrap gap-2 mt-2">
-          {lab.lab_tags?.length > 0 ? (
-            lab.lab_tags.map((t: { tag: string }, i: number) => (
-              <span
-                key={i}
-                className="bg-blue-100 text-blue-800 px-2 py-0.5 rounded text-xs"
-              >
-                {t.tag}
-              </span>
-            ))
-          ) : (
-            <p className="text-sm text-gray-400">（未取得）</p>
-          )}
-        </div>
-      </section>
-
-      <p className="text-xs text-gray-400 mt-8">
-        取得元: {lab.summary_source_url ?? "未設定"} ／ 最終取得:{" "}
-        {lab.fetched_at?.slice(0, 10) ?? "未取得"}
+    <main className="flex flex-col items-center p-4">
+      <h1 className="text-2xl font-bold mb-1">Tohoku Lab Map</h1>
+      <p className="text-sm text-gray-500 mb-3">
+        研究概要テキストの類似度で研究室を配置しています。近いほど研究内容が似ています。
       </p>
+
+      {/* クラスタ凡例 */}
+      <div className="flex gap-4 mb-3 flex-wrap justify-center">
+        {CLUSTER_NAMES.map((name, i) => (
+          <div key={i} className="flex items-center gap-1 text-xs">
+            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: CLUSTER_COLORS[i] }} />
+            <span>{name}</span>
+          </div>
+        ))}
+      </div>
+
+      <svg width={800} height={600} className="border rounded bg-gray-50">
+        {placed.map(lab => {
+          const color = lab.cluster_id !== null ? CLUSTER_COLORS[lab.cluster_id] : '#94a3b8'
+          return (
+            <g key={lab.id} onClick={() => setSelected(lab)} className="cursor-pointer">
+              <circle
+                cx={lab.x} cy={lab.y} r={18}
+                fill={color}
+                opacity={selected?.id === lab.id ? 1 : 0.75}
+                stroke={selected?.id === lab.id ? '#1e293b' : 'none'}
+                strokeWidth={2}
+              />
+              <text x={lab.x} y={lab.y + 30} textAnchor="middle" fontSize={10} fill="#1e293b">
+                {lab.name.slice(0, 12)}
+              </text>
+            </g>
+          )
+        })}
+      </svg>
+
+      {selected && (
+        <div className="mt-4 p-4 border rounded w-full max-w-md bg-white shadow">
+          <div className="flex items-center gap-2 mb-1">
+            <div
+              className="w-3 h-3 rounded-full"
+              style={{ backgroundColor: selected.cluster_id !== null ? CLUSTER_COLORS[selected.cluster_id] : '#94a3b8' }}
+            />
+            <span className="text-xs text-gray-500">
+              {selected.cluster_id !== null ? CLUSTER_NAMES[selected.cluster_id] : '未分類'}
+            </span>
+          </div>
+          <p className="font-bold">{selected.name}</p>
+          <p className="text-sm text-gray-500">{selected.faculty_name}</p>
+          <Link href={`/lab/${selected.id}`} className="text-blue-600 underline text-sm">
+            詳細を見る →
+          </Link>
+        </div>
+      )}
     </main>
-  );
+  )
 }
