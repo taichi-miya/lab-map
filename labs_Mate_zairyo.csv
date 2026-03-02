@@ -1,13 +1,14 @@
 name,faculty_name,lab_url,dept
-金属プロセス工学講座,三木 貴博,https://www.material.tohoku.ac.jp/labs/metallurgy/nagasaka.html,金属フロンティア工学専攻
-材料組織制御学分野（創形創質プロセス学講座）,貝沼 亮介・許 鑫・夏 季,https://www.material.tohoku.ac.jp/labs/metallurgy/kainuma.html,金属フロンティア工学専攻
-計算材料構成学分野（創形創質プロセス学講座）,大森 俊洋・五百藏一成,https://www.material.tohoku.ac.jp/labs/metallurgy/kainuma.html,金属フロンティア工学専攻
-素形材プロセス学分野（創形創質プロセス学講座）,及川 勝成・上島 伸文,https://www.material.tohoku.ac.jp/labs/metallurgy/oikawa.html,金属フロンティア工学専攻
-材料物理化学分野（先端マテリアル物理化学講座）,竹田 修・朱 尚萍,https://www.material.tohoku.ac.jp/labs/metallurgy/zhu.html,金属フロンティア工学専攻
-材料プロセス設計学分野（先端マテリアル物理化学講座）,朱 鴻民,https://www.material.tohoku.ac.jp/labs/metallurgy/zhu.html,金属フロンティア工学専攻
-材料分離プロセス研究分野（プロセス設計学講座）,柴田 浩幸・助永 壮平・上村 源,http://db.tagen.tohoku.ac.jp/php/forweb/outline.php?lang=ja&no=5140,金属フロンティア工学専攻
-基盤素材プロセッシング研究分野（プロセス設計学講座）,植田 滋・岩間 崇之,http://db.tagen.tohoku.ac.jp/php/forweb/outline.php?lang=ja&no=1106,金属フロンティア工学専攻
-金属組織制御学研究部門（プロセス制御学講座）,宮本 百郎・古原 忠・張 咏杰・謝 玉麟,http://www.imr.tohoku.ac.jp/ja/about/divisions-and-centers/research-division/09.html,金属フロンティア工学専攻
-構造制御機能材料学研究部門（プロセス制御学講座）,市坪 哲・岡本 範彦・李 弘毅・中田 侃樹,http://www.imr.tohoku.ac.jp/ja/about/divisions-and-centers/research-division/16.html,金属フロンティア工学専攻
-環境適合素材プロセス研究分野（プロセス制御学講座）,埜上 洋・夏井 俊悟・丸岡 伸洋・髙橋 純一,http://db.tagen.tohoku.ac.jp/php/forweb/outline.php?lang=ja&no=5150,金属フロンティア工学専攻
-データ可視化スマートラボ（プロセス制御学講座）,髙橋 幸生・篠田 弘造・阿部 真樹,http://db.tagen.tohoku.ac.jp/php/forweb/outline.php?lang=ja&no=2070,金属フロンティア工学専攻
+接合界面制御学講座,佐藤 裕・鈴木 聖顕,https://www.material.tohoku.ac.jp/labs/mtp/sato.html,材料システム工学専攻
+微粒子システムプロセス学分野（マイクロシステム学講座）,野村 直之・周 偉偉・董 明琪・周 振興,https://www.material.tohoku.ac.jp/labs/mtp/nomura.html,材料システム工学専攻
+材料システム計測学分野（マイクロシステム学講座）,小原 良和・長久保 白,https://www.material.tohoku.ac.jp/labs/mtp/mihara.html,材料システム工学専攻
+多元変換機能システム学分野（マイクロシステム学講座）,徐 超男・内山 智貴,https://www.material.tohoku.ac.jp/labs/mtp/xu.html,材料システム工学専攻
+生体機能材料学分野（生体材料システム学講座）,山本 雅哉・小林 真子,https://www.material.tohoku.ac.jp/labs/mtp/yamamoto.html,材料システム工学専攻
+医用材料工学分野（生体材料システム学講座）,成島 尚之・上田 恭介,https://www.material.tohoku.ac.jp/labs/mtp/narushima.html,材料システム工学専攻
+金属機能設計研究分野（物質構造評価学講座）,亀岡 聡・藤田 伸尚,http://db.tagen.tohoku.ac.jp/php/forweb/outline.php?lang=ja&no=5055,材料システム工学専攻
+ナノ電子プローブ回折計測研究分野（物質構造評価学講座）,津田 健治・森川 大輔,https://db.tagen.tohoku.ac.jp/php/forweb/outline.php?lang=ja&no=2101,材料システム工学専攻
+無機固体材料化学研究分野（物質構造評価学講座）,山田 高広・細野 新,https://db.tagen.tohoku.ac.jp/php/forweb/outline.php?lang=ja&no=2130,材料システム工学専攻
+先端結晶工学研究部門（材料機能制御プロセス学講座）,吉川 彰・柿本 浩一・横田 有為・吉野 将生・村上 力輝斗・石澤 倫・花田 貴,http://www.imr.tohoku.ac.jp/ja/about/divisions-and-centers/research-division/14.html,材料システム工学専攻
+複合機能材料学研究部門（材料機能制御プロセス学講座）,熊谷 悠・清原 慎・袁 星晏・ブ テイ ナツ フエン・益田 快理,http://www.imr.tohoku.ac.jp/ja/about/divisions-and-centers/research-division/23.html,材料システム工学専攻
+附属新素材共同研究開発センター（材料機能制御プロセス学講座）,梅津 理恵・西山 信行・山中 謙太・黄 嵐禎・任 勝均,http://www.imr.tohoku.ac.jp/ja/about/divisions-and-centers/facilities/02.html,材料システム工学専攻
+物質材料エネルギー領域（材料機能制御プロセス学講座）,増本 博,https://www.fris.tohoku.ac.jp/researcher/advanced/masumoto.html,材料システム工学専攻
