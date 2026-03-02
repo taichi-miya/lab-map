@@ -774,7 +774,7 @@ export default function ExplorePage() {
                       <ellipse cx={el.cx} cy={el.cy} rx={el.rx} ry={el.ry}
                         fill={C_FILL[i]} stroke={clusterPanel === i ? C[i] : C_STROKE[i]}
                         strokeWidth={clusterPanel === i ? 2 : 1} />
-                      <g transform={`translate(${el.cx - el.rx + 8}, ${el.cy - el.ry + 6})`}>
+                      <g transform={`translate(${el.cx - el.rx + 8}, ${el.cy - el.ry + 6}) scale(${1/zoom})`}>
                         <rect x={0} y={0} width={labelW} height={20} rx={10}
                           fill="white" stroke={C_STROKE[i]} strokeWidth={1} />
                         <circle cx={10} cy={10} r={3.5} fill={C[i]} />
@@ -831,11 +831,11 @@ export default function ExplorePage() {
                       />
                       {isPinned && (
                         <text x={lab.x} y={lab.y + 4} textAnchor="middle"
-                          fontSize={isActive ? 11 : 9} style={{ pointerEvents: 'none' }}>⭐</text>
+                          fontSize={(isActive ? 11 : 9) / zoom} style={{ pointerEvents: 'none' }}>⭐</text>
                       )}
                       <text
                         x={lab.x} y={lab.y + r + 15}
-                        textAnchor="middle" fontSize={10.5}
+                        textAnchor="middle" fontSize={10.5 / zoom}
                         fontWeight={isActive || isFocused || isPinned ? 700 : 500}
                         fill={isActive || isFocused ? color : isPinned ? '#92400E' : '#4B5563'}
                         opacity={isMatch ? 1 : 0.18}
