@@ -886,7 +886,7 @@ export default function ExplorePage() {
           {/* ── クラスタパネル ── */}
           {clusterPanel !== null && (
             <div style={{
-              position: 'absolute', top: 16, left: 16, zIndex: 20,
+              position: 'absolute', top: 120, left: 16, zIndex: 20,
               width: 280,
               background: 'rgba(255,255,255,0.92)',
               backdropFilter: 'blur(12px)',
@@ -918,7 +918,7 @@ export default function ExplorePage() {
               <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 6, fontWeight: 600 }}>
                 所属研究室 {placed.filter(l => l.cluster_id === clusterPanel).length}件
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 200, overflowY: 'auto' }}>
                 {placed.filter(l => l.cluster_id === clusterPanel).map(l => (
                   <button key={l.id} onClick={() => {
                     const t = calcFocusTransform(l.x, l.y, 2, svgW, svgH)
