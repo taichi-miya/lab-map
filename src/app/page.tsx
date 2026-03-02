@@ -30,6 +30,12 @@ const C_STROKE = ['rgba(59,130,246,0.35)', 'rgba(34,197,94,0.35)', 'rgba(245,158
 const C_CHIP   = ['rgba(59,130,246,0.12)', 'rgba(34,197,94,0.12)', 'rgba(245,158,11,0.12)', 'rgba(239,68,68,0.12)']
 const C_CHIP_H = ['rgba(59,130,246,0.22)', 'rgba(34,197,94,0.22)', 'rgba(245,158,11,0.22)', 'rgba(239,68,68,0.22)']
 const CLUSTER_NAMES = ['プラズマ・核融合', '材料・照射', '計測・レーザー', '安全・システム']
+const CLUSTER_DESC = [
+  '核融合炉の実現に向けて、超高温プラズマの閉じ込め・制御や超伝導マグネット設計など、核融合エネルギーの工学的課題に取り組む研究室群。',
+  '中性子・イオン照射による材料の劣化解析から耐極限環境材料の開発まで、原子力・核融合炉の構造材料を研究する研究室群。',
+  '粒子ビームや放射線を駆使した計測・イメージング技術を開発し、医療・環境・宇宙など幅広い分野へ応用する研究室群。',
+  '原子力プラントの安全性評価・人間工学的アプローチから、放射性廃棄物の処理・処分システムまでを研究する研究室群。',
+]
 const PIN_KEY = 'labmap_pins'
 
 const W = 800, H = 600  // ノード座標の基準サイズ（変更しない）
@@ -82,7 +88,8 @@ export default function ExplorePage() {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([])
   const [suggIndex, setSuggIndex] = useState(-1)  // キーボード選択中のインデックス
   const [showSugg, setShowSugg] = useState(false)
-  const [focusedLabId, setFocusedLabId] = useState<string | null>(null) // フォーカスズーム対象
+  const [focusedLabId, setFocusedLabId] = useState<string | null>(null)
+  const [clusterPanel, setClusterPanel] = useState<number | null>(null) // フォーカスズーム対象
 
   const isDragging = useRef(false)
   const dragStart = useRef({ x: 0, y: 0 })
@@ -758,9 +765,11 @@ export default function ExplorePage() {
                   if (!el) return null
                   const labelW = CLUSTER_NAMES[i].length * 10.5 + 26
                   return (
-                    <g key={i}>
+                    <g key={i} style={{ cursor: 'pointer' }}
+                      onClick={e => { e.stopPropagation(); setClusterPanel(clusterPanel === i ? null : i) }}>
                       <ellipse cx={el.cx} cy={el.cy} rx={el.rx} ry={el.ry}
-                        fill={C_FILL[i]} stroke={C_STROKE[i]} strokeWidth={1} />
+                        fill={C_FILL[i]} stroke={clusterPanel === i ? C[i] : C_STROKE[i]}
+                        strokeWidth={clusterPanel === i ? 2 : 1} />
                       <g transform={`translate(${el.cx - el.rx + 8}, ${el.cy - el.ry + 6})`}>
                         <rect x={0} y={0} width={labelW} height={20} rx={10}
                           fill="white" stroke={C_STROKE[i]} strokeWidth={1} />
@@ -873,6 +882,63 @@ export default function ExplorePage() {
               boxShadow: '0 2px 8px rgba(17,24,39,0.10)',
               cursor: 'pointer', fontFamily: 'var(--font)', transition: 'background 0.1s',
             }}>リセット</button>
+
+          {/* ── クラスタパネル ── */}
+          {clusterPanel !== null && (
+            <div style={{
+              position: 'absolute', top: 16, left: 16, zIndex: 20,
+              width: 280,
+              background: 'rgba(255,255,255,0.92)',
+              backdropFilter: 'blur(12px)',
+              WebkitBackdropFilter: 'blur(12px)',
+              borderRadius: 14,
+              border: `1.5px solid ${C_STROKE[clusterPanel]}`,
+              boxShadow: '0 4px 24px rgba(17,24,39,0.10)',
+              padding: '16px',
+              fontFamily: 'var(--font)',
+            }}>
+              {/* ヘッダー */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div style={{ width: 10, height: 10, borderRadius: '50%', background: C[clusterPanel] }} />
+                  <span style={{ fontWeight: 700, fontSize: 14, color: C[clusterPanel] }}>
+                    {CLUSTER_NAMES[clusterPanel]}
+                  </span>
+                </div>
+                <button onClick={() => setClusterPanel(null)} style={{
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  fontSize: 16, color: '#9ca3af', lineHeight: 1, padding: 2,
+                }}>✕</button>
+              </div>
+              {/* 説明文 */}
+              <p style={{ fontSize: 12, color: '#4b5563', lineHeight: 1.7, margin: '0 0 12px' }}>
+                {CLUSTER_DESC[clusterPanel]}
+              </p>
+              {/* 所属研究室リスト */}
+              <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 6, fontWeight: 600 }}>
+                所属研究室 {placed.filter(l => l.cluster_id === clusterPanel).length}件
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {placed.filter(l => l.cluster_id === clusterPanel).map(l => (
+                  <button key={l.id} onClick={() => {
+                    const t = calcFocusTransform(l.x, l.y, 2, svgW, svgH)
+                    setZoom(t.zoom); setOffset(t.offset); setFocusedLabId(l.id)
+                    setClusterPanel(null)
+                  }} style={{
+                    textAlign: 'left', background: 'none', border: 'none',
+                    cursor: 'pointer', padding: '4px 6px', borderRadius: 6,
+                    fontSize: 12, color: '#374151',
+                    transition: 'background 0.1s',
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.background = C_CHIP[clusterPanel])}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+                  >
+                    {l.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* ── プレビューカード（マップ内下部・半透明） ── */}
           {preview && (
