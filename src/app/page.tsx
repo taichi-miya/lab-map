@@ -51,7 +51,13 @@ const CLUSTER_DESC = [
 ]
 const PIN_KEY = 'labmap_pins'
 const FILTER_W = 228
-const FILTER_BTN_W = 52  // FABボタン幅 + gap
+const FILTER_BTN_W = 52
+const LEGEND_W = 220
+const LEGEND_BTN_W = 36
+const ZOOM_CTRL_W = 52   // ズームコントロール幅
+const ZOOM_CTRL_H = 100  // +/%/- の縦幅
+const CARD_H_EST = 130   // カード推定高さ
+const BOTTOM_PAD = 16
 
 // SVG論理空間全体（プロット不可マージン込み）
 const TOTAL_W = 8000, TOTAL_H = 6400
@@ -119,6 +125,7 @@ export default function ExplorePage() {
   // フィルター状態
   const [labCourses, setLabCourses] = useState<LabCourse[]>([])
   const [filterOpen, setFilterOpen] = useState(true)
+  const [legendOpen, setLegendOpen] = useState(true)
   const [filterMode, setFilterMode] = useState<FilterMode>('course')
 
   // 学科/コースフィルター
@@ -154,8 +161,14 @@ export default function ExplorePage() {
   const cardHovered = useRef(false)
   const fittedRef = useRef(false)
 
-  // フィルターが占める左端オフセット
+  // ── 動的レイアウト計算 ──
   const filterLeftOffset = filterOpen ? FILTER_W + 16 + 8 : FILTER_BTN_W + 16
+  const legendRightOffset = legendOpen ? LEGEND_W + 16 + 8 : LEGEND_BTN_W + 16
+  // カード表示時のボトム（カードの上にズームコントロールを逃がす）
+  const cardVisible = !!preview
+  const zoomBottom = cardVisible ? BOTTOM_PAD + CARD_H_EST + 12 : BOTTOM_PAD
+  // カード: 左=フィルター右端, 右=凡例左端+ズーム幅
+  const cardRight = legendRightOffset + ZOOM_CTRL_W + 8
 
   useEffect(() => {
     const onResize = () => { setSvgW(window.innerWidth); setSvgH(window.innerHeight); fittedRef.current = false }
@@ -685,20 +698,6 @@ export default function ExplorePage() {
 
         {showPinList && <div style={{ position: 'fixed', inset: 0, zIndex: 45 }} onClick={() => setShowPinList(false)} />}
 
-        {/* ── カテゴリチップ ── */}
-        <div style={{ position: 'absolute', top: 68, left: 0, right: 0, zIndex: 29, display: 'flex', gap: 7, flexWrap: 'wrap', alignItems: 'center', padding: '6px 16px 8px', background: 'rgba(250,250,247,0.80)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)' }}>
-          {CLUSTER_NAMES.map((name, i) => {
-            const active = activeCluster === i, hov = chipHover === i
-            return (
-              <button key={i} className="chip-btn" onClick={() => setActiveCluster(active ? null : i)} onMouseEnter={() => setChipHover(i)} onMouseLeave={() => setChipHover(null)}
-                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 13px 5px 10px', borderRadius: 999, background: active || hov ? C_CHIP_H[i] : C_CHIP[i], border: `1.5px solid ${active ? C[i] : 'transparent'}`, color: C[i], fontSize: 12, fontWeight: active ? 600 : 500, cursor: 'pointer', boxShadow: active ? `0 0 0 3px ${C_CHIP[i]}` : 'none', fontFamily: 'var(--font)' }}>
-                <span style={{ width: 7, height: 7, borderRadius: '50%', background: C[i], flexShrink: 0, opacity: active ? 1 : 0.75 }} />{name}
-              </button>
-            )
-          })}
-          {activeCluster !== null && <button onClick={() => setActiveCluster(null)} style={{ fontSize: 11, color: 'var(--muted)', background: 'transparent', border: 'none', cursor: 'pointer', padding: '4px 6px', fontFamily: 'var(--font)' }}>✕ 解除</button>}
-        </div>
-
         {/* ── マップ ── */}
         <div ref={mapDivRef} style={{ position: 'absolute', inset: 0, background: 'var(--card)', overflow: 'hidden', userSelect: 'none' }}>
           <svg ref={svgRef} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', display: 'block', cursor: isDragging.current ? 'grabbing' : 'grab' }}
@@ -744,10 +743,11 @@ export default function ExplorePage() {
                   return (
                     <g key={i} data-ellipse="true" style={{ cursor: 'pointer' }} onClick={e => { e.stopPropagation(); setClusterPanel(clusterPanel === i ? null : i) }}>
                       <ellipse cx={el.cx} cy={el.cy} rx={el.rx} ry={el.ry} fill={C_FILL[i]} stroke={clusterPanel === i ? C[i] : C_STROKE[i]} strokeWidth={clusterPanel === i ? 2 : 1} />
-                      <g transform={`translate(${el.cx - el.rx + 8},${el.cy - el.ry + 6}) scale(${1/zoom})`}>
-                        <rect x={0} y={0} width={labelW} height={20} rx={10} fill="white" stroke={C_STROKE[i]} strokeWidth={1} />
-                        <circle cx={10} cy={10} r={3.5} fill={C[i]} />
-                        <text x={18} y={14} fontSize={10} fontWeight={600} fill={C[i]} style={{ pointerEvents: 'none' }}>{CLUSTER_NAMES[i]}</text>
+                      {/* ラベル：楕円上端に被るよう動的配置、スケール逆補正で常に同じ画面サイズ */}
+                      <g transform={`translate(${el.cx},${el.cy - el.ry + 4}) scale(${1/zoom})`}>
+                        <rect x={-(labelW/2)} y={-10} width={labelW} height={20} rx={10} fill="white" stroke={C_STROKE[i]} strokeWidth={1} />
+                        <circle cx={-(labelW/2) + 10} cy={0} r={3.5} fill={C[i]} />
+                        <text x={-(labelW/2) + 18} y={4} fontSize={10} fontWeight={600} fill={C[i]} style={{ pointerEvents: 'none' }}>{CLUSTER_NAMES[i]}</text>
                       </g>
                     </g>
                   )
@@ -863,19 +863,56 @@ export default function ExplorePage() {
             </button>
           </div>
 
-          {/* ズームコントロール */}
-          <div style={{ position: 'absolute', bottom: 16, right: 16, display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'center' }}>
+          {/* ── 凡例パネル（右上フローティング） ── */}
+          <div style={{ position: 'absolute', top: 80, right: 16, zIndex: 25, display: 'flex', alignItems: 'flex-start', gap: 8, pointerEvents: 'none', flexDirection: 'row-reverse' }}>
+            <div style={{ width: legendOpen ? LEGEND_W : 0, opacity: legendOpen ? 1 : 0, overflow: 'hidden', transition: 'width 0.22s ease, opacity 0.18s ease', pointerEvents: legendOpen ? 'auto' : 'none', maxHeight: 'calc(100vh - 200px)' }}>
+              <div style={{ width: LEGEND_W, background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', borderRadius: 14, border: '1px solid rgba(229,231,235,0.9)', boxShadow: '0 4px 20px rgba(17,24,39,0.12)', overflow: 'hidden' }}>
+                <div style={{ padding: '10px 12px 8px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: activeCluster !== null ? C[activeCluster] : 'var(--text)' }}>● 研究クラスタ</span>
+                  {activeCluster !== null && (
+                    <button onClick={() => setActiveCluster(null)} style={{ fontSize: 10, color: '#6B7280', background: 'none', border: 'none', cursor: 'pointer', padding: '1px 4px', fontFamily: 'var(--font)' }}>✕ 解除</button>
+                  )}
+                </div>
+                <div style={{ overflowY: 'auto', maxHeight: 'calc(100vh - 240px)' }}>
+                  {CLUSTER_NAMES.map((name, i) => {
+                    const active = activeCluster === i, hov = chipHover === i
+                    return (
+                      <button key={i} className="chip-btn"
+                        onClick={() => setActiveCluster(active ? null : i)}
+                        onMouseEnter={() => setChipHover(i)} onMouseLeave={() => setChipHover(null)}
+                        style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 12px', background: active || hov ? C_CHIP_H[i] : 'transparent', border: 'none', borderBottom: '1px solid rgba(229,231,235,0.4)', cursor: 'pointer', fontFamily: 'var(--font)', textAlign: 'left' }}>
+                        <span style={{ width: 9, height: 9, borderRadius: '50%', background: C[i], flexShrink: 0, boxShadow: active ? `0 0 0 3px ${C_CHIP[i]}` : 'none' }} />
+                        <span style={{ fontSize: 11, fontWeight: active ? 700 : 500, color: active ? C[i] : 'var(--text)', lineHeight: 1.3 }}>{name}</span>
+                        {active && <span style={{ marginLeft: 'auto', fontSize: 10, color: C[i] }}>✓</span>}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            </div>
+            <button onClick={() => setLegendOpen(v => !v)}
+              style={{ width: LEGEND_BTN_W, height: 36, borderRadius: 10, border: 'none', flexShrink: 0, background: activeCluster !== null ? C_CHIP[activeCluster] : 'rgba(255,255,255,0.95)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', boxShadow: '0 2px 10px rgba(17,24,39,0.13)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', pointerEvents: 'auto', transition: 'background 0.15s' }}
+              title={legendOpen ? '凡例を閉じる' : '凡例を開く'}>
+              {activeCluster !== null
+                ? <span style={{ width: 11, height: 11, borderRadius: '50%', background: C[activeCluster], display: 'inline-block' }} />
+                : <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth={2} strokeLinecap="round"><circle cx="12" cy="12" r="3"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/></svg>
+              }
+            </button>
+          </div>
+
+          {/* ズームコントロール（カード表示時は上に逃げる） */}
+          <div style={{ position: 'absolute', bottom: zoomBottom, right: 16, display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'center', transition: 'bottom 0.22s ease', zIndex: 20 }}>
             <button className="zoom-btn" onClick={() => applyZoom(zoom + ZOOM_STEP)} disabled={zoom >= MAX_ZOOM} style={{ width: 34, height: 34, borderRadius: 10, background: 'white', border: 'none', boxShadow: '0 2px 8px rgba(17,24,39,0.12)', fontSize: 20, color: '#374151', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontFamily: 'monospace' }}>+</button>
             <div style={{ width: 34, height: 22, borderRadius: 6, background: 'rgba(255,255,255,0.9)', boxShadow: '0 1px 4px rgba(17,24,39,0.08)', fontSize: 10, color: 'var(--muted)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{Math.round(zoom * 100)}%</div>
             <button className="zoom-btn" onClick={() => applyZoom(zoom - ZOOM_STEP)} disabled={zoom <= fitZoom} style={{ width: 34, height: 34, borderRadius: 10, background: 'white', border: 'none', boxShadow: '0 2px 8px rgba(17,24,39,0.12)', fontSize: 22, color: '#374151', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontFamily: 'monospace' }}>−</button>
           </div>
 
           <button className="reset-btn" onClick={() => { setFocusedLabId(null); doFit(svgW, svgH, labs.map(l => l.map_x != null ? MAP_MARGIN + l.map_x * 2 : MAP_MARGIN + 400), labs.map(l => l.map_y != null ? MAP_MARGIN + l.map_y * 2 : MAP_MARGIN + 300)) }}
-            style={{ position: 'absolute', bottom: 16, left: filterLeftOffset, fontSize: 11, color: 'var(--muted)', background: 'white', border: 'none', borderRadius: 8, padding: '5px 10px', boxShadow: '0 2px 8px rgba(17,24,39,0.10)', cursor: 'pointer', fontFamily: 'var(--font)', transition: 'background 0.1s,left 0.22s ease' }}>リセット</button>
+            style={{ position: 'absolute', bottom: BOTTOM_PAD, left: filterLeftOffset, fontSize: 11, color: 'var(--muted)', background: 'white', border: 'none', borderRadius: 8, padding: '5px 10px', boxShadow: '0 2px 8px rgba(17,24,39,0.10)', cursor: 'pointer', fontFamily: 'var(--font)', transition: 'background 0.1s, left 0.22s ease' }}>リセット</button>
 
           {/* クラスタパネル */}
           {clusterPanel !== null && (
-            <div style={{ position: 'absolute', top: 120, left: filterLeftOffset, zIndex: 20, width: 280, background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', borderRadius: 14, border: `1.5px solid ${C_STROKE[clusterPanel]}`, boxShadow: '0 4px 24px rgba(17,24,39,0.10)', padding: '16px', fontFamily: 'var(--font)', transition: 'left 0.22s ease' }}>
+            <div style={{ position: 'absolute', top: 80, left: filterLeftOffset, zIndex: 20, width: 280, background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', borderRadius: 14, border: `1.5px solid ${C_STROKE[clusterPanel]}`, boxShadow: '0 4px 24px rgba(17,24,39,0.10)', padding: '16px', fontFamily: 'var(--font)', transition: 'left 0.22s ease' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <div style={{ width: 10, height: 10, borderRadius: '50%', background: C[clusterPanel] }} />
@@ -896,9 +933,9 @@ export default function ExplorePage() {
             </div>
           )}
 
-          {/* プレビューカード（フィルター幅を除いた幅で表示） */}
+          {/* プレビューカード（フィルター右端〜ズームボタン左端） */}
           {preview && (
-            <div style={{ position: 'absolute', bottom: 16, left: filterLeftOffset, right: 16, zIndex: 10, pointerEvents: 'auto', transition: 'left 0.22s ease' }}>
+            <div style={{ position: 'absolute', bottom: BOTTOM_PAD, left: filterLeftOffset, right: cardRight, zIndex: 10, pointerEvents: 'auto', transition: 'left 0.22s ease, right 0.22s ease' }}>
               {renderPreviewCard(preview)}
             </div>
           )}
