@@ -54,19 +54,27 @@ const PIN_KEY = 'labmap_pins'
 const FILTER_W = 228
 const FILTER_BTN_W = 52  // FABボタン幅 + gap
 
-// マップ論理サイズ（ノード座標空間）
-const W = 6400, H = 4800
-// ノードが配置可能な内側マージン（これより外にはプロット不可）
-const MARGIN = 400
-const NODE_MIN_X = MARGIN, NODE_MAX_X = W - MARGIN
-const NODE_MIN_Y = MARGIN, NODE_MAX_Y = H - MARGIN
+// SVG論理空間全体（プロット不可マージン込み）
+const TOTAL_W = 7200, TOTAL_H = 5600
+// 外周プロット不可帯の幅
+const MAP_MARGIN = 400
+// マップ描画領域（TOTAL中央 6400x4800）
+const W = TOTAL_W - MAP_MARGIN * 2  // 6400
+const H = TOTAL_H - MAP_MARGIN * 2  // 4800
+// ノードのプロット可能範囲
+const NODE_MIN_X = MAP_MARGIN
+const NODE_MAX_X = MAP_MARGIN + W
+const NODE_MIN_Y = MAP_MARGIN
+const NODE_MAX_Y = MAP_MARGIN + H
+// グリッド間隔（論理px固定 → ズームで視覚的に拡縮）
+const GRID_SIZE = 200
 
 const MIN_ZOOM = 0.03, MAX_ZOOM = 3.0, ZOOM_STEP = 0.25
 
 function clampOffset(ox: number, oy: number, zoom: number, svgW = 800, svgH = 600) {
   const PAD = 80
-  const minX = Math.min(0, svgW - W * zoom - PAD), maxX = Math.max(0, PAD)
-  const minY = Math.min(0, svgH - H * zoom - PAD), maxY = Math.max(0, PAD)
+  const minX = Math.min(0, svgW - TOTAL_W * zoom - PAD), maxX = Math.max(0, PAD)
+  const minY = Math.min(0, svgH - TOTAL_H * zoom - PAD), maxY = Math.max(0, PAD)
   return { x: Math.min(maxX, Math.max(minX, ox)), y: Math.min(maxY, Math.max(minY, oy)) }
 }
 function loadPins(): string[] { try { return JSON.parse(localStorage.getItem(PIN_KEY) ?? '[]') } catch { return [] } }
@@ -176,7 +184,7 @@ export default function ExplorePage() {
   useEffect(() => {
     if (fittedRef.current || labs.length === 0 || svgW < 100 || svgH < 100) return
     fittedRef.current = true
-    doFit(svgW, svgH, labs.map(l => l.map_x ?? 400), labs.map(l => l.map_y ?? 300))
+    doFit(svgW, svgH, labs.map(l => l.map_x != null ? MAP_MARGIN + l.map_x * 2 : MAP_MARGIN + 400), labs.map(l => l.map_y != null ? MAP_MARGIN + l.map_y * 2 : MAP_MARGIN + 300))
   }, [labs, svgW, svgH, doFit])
 
   // サジェスト生成
@@ -203,8 +211,8 @@ export default function ExplorePage() {
   // placed: ノード座標をW×Hにスケール（元座標 3200×2400 → 6400×4800）
   const placed = labs.map((lab, i) => ({
     ...lab,
-    x: lab.map_x != null ? Math.min(NODE_MAX_X, Math.max(NODE_MIN_X, lab.map_x * 2)) : 100 + (i % 5) * 130,
-    y: lab.map_y != null ? Math.min(NODE_MAX_Y, Math.max(NODE_MIN_Y, lab.map_y * 2)) : 100 + Math.floor(i / 5) * 120,
+    x: lab.map_x != null ? Math.min(NODE_MAX_X, Math.max(NODE_MIN_X, MAP_MARGIN + lab.map_x * 2)) : MAP_MARGIN + 100 + (i % 5) * 130,
+    y: lab.map_y != null ? Math.min(NODE_MAX_Y, Math.max(NODE_MIN_Y, MAP_MARGIN + lab.map_y * 2)) : MAP_MARGIN + 100 + Math.floor(i / 5) * 120,
   }))
   const pinnedLabs = placed.filter(l => pins.includes(l.id))
 
@@ -645,26 +653,21 @@ export default function ExplorePage() {
               <filter id="ns" x="-60%" y="-60%" width="220%" height="220%"><feDropShadow dx="0" dy="1" stdDeviation="2.5" floodColor="rgba(17,24,39,0.16)" /></filter>
               <filter id="ns-h" x="-60%" y="-60%" width="220%" height="220%"><feDropShadow dx="0" dy="3" stdDeviation="5" floodColor="rgba(17,24,39,0.22)" /></filter>
               <filter id="ns-focus" x="-60%" y="-60%" width="220%" height="220%"><feDropShadow dx="0" dy="0" stdDeviation="8" floodColor="rgba(59,130,246,0.5)" /></filter>
-              {/* マージン領域のハッチパターン */}
-              <pattern id="margin-hatch" patternUnits="userSpaceOnUse" width={24} height={24} patternTransform="rotate(45)">
-                <line x1={0} y1={0} x2={0} y2={24} stroke="rgba(200,210,220,0.35)" strokeWidth={8} />
+              {/* グリッドパターン（論理px固定・ズームで視覚的に拡縮） */}
+              <pattern id="grid" patternUnits="userSpaceOnUse" width={GRID_SIZE} height={GRID_SIZE}>
+                <path d={`M ${GRID_SIZE} 0 L 0 0 0 ${GRID_SIZE}`} fill="none" stroke="rgba(180,190,200,0.28)" strokeWidth={1} />
               </pattern>
             </defs>
             <g clipPath="url(#map-clip)">
               <g transform={transform}>
-                {/* マップ全体背景 */}
-                <rect x={0} y={0} width={W} height={H} fill="rgba(248,250,252,0.6)" />
-                {/* マージン領域（プロット不可・ハッチング） */}
-                {/* 上 */}
-                <rect x={0} y={0} width={W} height={MARGIN} fill="url(#margin-hatch)" />
-                {/* 下 */}
-                <rect x={0} y={H - MARGIN} width={W} height={MARGIN} fill="url(#margin-hatch)" />
-                {/* 左 */}
-                <rect x={0} y={MARGIN} width={MARGIN} height={H - MARGIN * 2} fill="url(#margin-hatch)" />
-                {/* 右 */}
-                <rect x={W - MARGIN} y={MARGIN} width={MARGIN} height={H - MARGIN * 2} fill="url(#margin-hatch)" />
-                {/* 内側プロット可能領域の枠線 */}
-                <rect x={MARGIN} y={MARGIN} width={W - MARGIN * 2} height={H - MARGIN * 2} fill="none" stroke="rgba(180,195,210,0.5)" strokeWidth={2} strokeDasharray="12 8" />
+                {/* 全体背景（プロット不可帯含む） */}
+                <rect x={0} y={0} width={TOTAL_W} height={TOTAL_H} fill="rgba(242,245,248,0.95)" />
+                {/* マップ描画領域（6400x4800）の背景 */}
+                <rect x={MAP_MARGIN} y={MAP_MARGIN} width={W} height={H} fill="rgba(252,253,254,1)" />
+                {/* グリッド（TOTAL全体に敷く） */}
+                <rect x={0} y={0} width={TOTAL_W} height={TOTAL_H} fill="url(#grid)" />
+                {/* マップ領域の枠線 */}
+                <rect x={MAP_MARGIN} y={MAP_MARGIN} width={W} height={H} fill="none" stroke="rgba(160,175,190,0.45)" strokeWidth={1.5} />
 
                 {/* クラスタ楕円 */}
                 {clusterEllipses.map((el, i) => {
@@ -770,7 +773,7 @@ export default function ExplorePage() {
             <button className="zoom-btn" onClick={() => applyZoom(zoom - ZOOM_STEP)} disabled={zoom <= MIN_ZOOM} style={{ width: 34, height: 34, borderRadius: 10, background: 'white', border: 'none', boxShadow: '0 2px 8px rgba(17,24,39,0.12)', fontSize: 22, color: '#374151', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontFamily: 'monospace' }}>−</button>
           </div>
 
-          <button className="reset-btn" onClick={() => { setFocusedLabId(null); doFit(svgW, svgH, labs.map(l => l.map_x ?? 400), labs.map(l => l.map_y ?? 300)) }}
+          <button className="reset-btn" onClick={() => { setFocusedLabId(null); doFit(svgW, svgH, labs.map(l => l.map_x != null ? MAP_MARGIN + l.map_x * 2 : MAP_MARGIN + 400), labs.map(l => l.map_y != null ? MAP_MARGIN + l.map_y * 2 : MAP_MARGIN + 300)) }}
             style={{ position: 'absolute', bottom: 16, left: filterLeftOffset, fontSize: 11, color: 'var(--muted)', background: 'white', border: 'none', borderRadius: 8, padding: '5px 10px', boxShadow: '0 2px 8px rgba(17,24,39,0.10)', cursor: 'pointer', fontFamily: 'var(--font)', transition: 'background 0.1s,left 0.22s ease' }}>リセット</button>
 
           {/* クラスタパネル */}
