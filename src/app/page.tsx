@@ -55,9 +55,9 @@ const FILTER_W = 228
 const FILTER_BTN_W = 52  // FABボタン幅 + gap
 
 // SVG論理空間全体（プロット不可マージン込み）
-const TOTAL_W = 7200, TOTAL_H = 5600
+const TOTAL_W = 8000, TOTAL_H = 6400
 // 外周プロット不可帯の幅
-const MAP_MARGIN = 400
+const MAP_MARGIN = 800
 // マップ描画領域（TOTAL中央 6400x4800）
 const W = TOTAL_W - MAP_MARGIN * 2  // 6400
 const H = TOTAL_H - MAP_MARGIN * 2  // 4800
@@ -647,34 +647,47 @@ export default function ExplorePage() {
         {/* ── マップ ── */}
         <div ref={mapDivRef} style={{ position: 'absolute', inset: 0, background: 'var(--card)', overflow: 'hidden', userSelect: 'none' }}>
           <svg ref={svgRef} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', display: 'block', cursor: isDragging.current ? 'grabbing' : 'grab' }}
-            onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}>
+            onMouseDown={handleMouseDown} onMouseMove={handleMouseMove}
+            onMouseUp={e => {
+              handleMouseUp()
+              // ドラッグでなく、ノードや楕円以外の背景クリックならclusterPanelを閉じる
+              if (!dragMoved.current) {
+                const target = e.target as Element
+                if (!target.closest('g[data-node]') && !target.closest('g[data-ellipse]')) {
+                  setClusterPanel(null)
+                }
+              }
+            }}
+            onMouseLeave={handleMouseUp}>
             <defs>
               <clipPath id="map-clip"><rect x={0} y={0} width={svgW} height={svgH} /></clipPath>
               <filter id="ns" x="-60%" y="-60%" width="220%" height="220%"><feDropShadow dx="0" dy="1" stdDeviation="2.5" floodColor="rgba(17,24,39,0.16)" /></filter>
               <filter id="ns-h" x="-60%" y="-60%" width="220%" height="220%"><feDropShadow dx="0" dy="3" stdDeviation="5" floodColor="rgba(17,24,39,0.22)" /></filter>
               <filter id="ns-focus" x="-60%" y="-60%" width="220%" height="220%"><feDropShadow dx="0" dy="0" stdDeviation="8" floodColor="rgba(59,130,246,0.5)" /></filter>
-              {/* グリッドパターン（論理px固定・ズームで視覚的に拡縮） */}
-              <pattern id="grid" patternUnits="userSpaceOnUse" width={GRID_SIZE} height={GRID_SIZE}>
-                <path d={`M ${GRID_SIZE} 0 L 0 0 0 ${GRID_SIZE}`} fill="none" stroke="rgba(180,190,200,0.28)" strokeWidth={1} />
-              </pattern>
             </defs>
             <g clipPath="url(#map-clip)">
               <g transform={transform}>
-                {/* 全体背景（プロット不可帯含む） */}
-                <rect x={0} y={0} width={TOTAL_W} height={TOTAL_H} fill="rgba(242,245,248,0.95)" />
-                {/* マップ描画領域（6400x4800）の背景 */}
-                <rect x={MAP_MARGIN} y={MAP_MARGIN} width={W} height={H} fill="rgba(252,253,254,1)" />
-                {/* グリッド（TOTAL全体に敷く） */}
-                <rect x={0} y={0} width={TOTAL_W} height={TOTAL_H} fill="url(#grid)" />
-                {/* マップ領域の枠線 */}
-                <rect x={MAP_MARGIN} y={MAP_MARGIN} width={W} height={H} fill="none" stroke="rgba(160,175,190,0.45)" strokeWidth={1.5} />
+                {/* 全体背景（均一） */}
+                <rect x={0} y={0} width={TOTAL_W} height={TOTAL_H} fill="rgba(248,250,252,0.7)" />
+                {/* グリッド（線幅をzoomで割って画面上常に1px相当に） */}
+                {(() => {
+                  const lines = []
+                  const lw = 1 / zoom
+                  for (let x = 0; x <= TOTAL_W; x += GRID_SIZE) {
+                    lines.push(<line key={`vl${x}`} x1={x} y1={0} x2={x} y2={TOTAL_H} stroke="rgba(180,190,200,0.30)" strokeWidth={lw} />)
+                  }
+                  for (let y = 0; y <= TOTAL_H; y += GRID_SIZE) {
+                    lines.push(<line key={`hl${y}`} x1={0} y1={y} x2={TOTAL_W} y2={y} stroke="rgba(180,190,200,0.30)" strokeWidth={lw} />)
+                  }
+                  return lines
+                })()}
 
                 {/* クラスタ楕円 */}
                 {clusterEllipses.map((el, i) => {
                   if (!el) return null
                   const labelW = CLUSTER_NAMES[i].length * 10.5 + 26
                   return (
-                    <g key={i} style={{ cursor: 'pointer' }} onClick={e => { e.stopPropagation(); setClusterPanel(clusterPanel === i ? null : i) }}>
+                    <g key={i} data-ellipse="true" style={{ cursor: 'pointer' }} onClick={e => { e.stopPropagation(); setClusterPanel(clusterPanel === i ? null : i) }}>
                       <ellipse cx={el.cx} cy={el.cy} rx={el.rx} ry={el.ry} fill={C_FILL[i]} stroke={clusterPanel === i ? C[i] : C_STROKE[i]} strokeWidth={clusterPanel === i ? 2 : 1} />
                       <g transform={`translate(${el.cx - el.rx + 8},${el.cy - el.ry + 6}) scale(${1/zoom})`}>
                         <rect x={0} y={0} width={labelW} height={20} rx={10} fill="white" stroke={C_STROKE[i]} strokeWidth={1} />
