@@ -1,6 +1,5 @@
 'use client'
 import { useEffect, useState, useRef, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 
@@ -100,9 +99,8 @@ const FILTER_TABS: { mode: FilterMode; label: string }[] = [
 ]
 
 export default function ExplorePage() {
-  const router = useRouter()
   const [labs, setLabs] = useState<Lab[]>([])
-  const [preview, setPreview] = useState<Lab | null>(null)
+  const [preview, setPreview] = useState<{ lab: Lab; pinned: boolean } | null>(null)
   const [query, setQuery] = useState('')
   const [activeCluster, setActiveCluster] = useState<number | null>(null)
   const [chipHover, setChipHover] = useState<number | null>(null)
@@ -220,7 +218,7 @@ export default function ExplorePage() {
     setShowSugg(false); setSuggIndex(-1)
     if (s.type === 'lab' || s.type === 'faculty') {
       const lab = placed.find(p => p.id === s.labId)
-      if (lab) { const { zoom: z, offset: o } = calcFocusTransform(lab.x, lab.y, 2, svgW, svgH); setZoom(z); setOffset(o); setFocusedLabId(lab.id); setPreview(lab); setQuery(s.label) }
+      if (lab) { const { zoom: z, offset: o } = calcFocusTransform(lab.x, lab.y, 2, svgW, svgH); setZoom(z); setOffset(o); setFocusedLabId(lab.id); setPreview({ lab, pinned: true }); setQuery(s.label) }
     } else if (s.type === 'tag') { setQuery(s.label); setFocusedLabId(null) }
   }, [placed, svgW, svgH])
 
@@ -344,7 +342,8 @@ export default function ExplorePage() {
     </main>
   )
 
-  const renderPreviewCard = (lab: Lab) => {
+  const renderPreviewCard = (item: { lab: Lab; pinned: boolean }) => {
+    const { lab, pinned } = item
     const ci = lab.cluster_id ?? 0
     const color = lab.cluster_id !== null ? C[ci] : '#94A3B8'
     const chipBg = lab.cluster_id !== null ? C_CHIP[ci] : 'rgba(148,163,184,0.12)'
@@ -360,23 +359,35 @@ export default function ExplorePage() {
     return (
       <div style={{ animation: 'slideUpOuter 0.15s ease forwards' }}
         onMouseEnter={() => { cardHovered.current = true; if (leaveTimer.current) clearTimeout(leaveTimer.current) }}
-        onMouseLeave={() => { cardHovered.current = false; setPreview(null) }}
+        onMouseLeave={() => {
+          cardHovered.current = false
+          if (!preview?.pinned) {
+            leaveTimer.current = setTimeout(() => setPreview(null), 2000)
+          }
+        }}
       >
         <div style={{
           background: 'rgba(255,255,255,0.72)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
-          borderRadius: 16, border: `1.5px solid ${strokeColor}`, boxShadow: '0 4px 24px rgba(17,24,39,0.14)',
+          borderRadius: 16, border: `1.5px solid ${pinned ? color : strokeColor}`, boxShadow: `0 4px 24px rgba(17,24,39,${pinned ? '0.18' : '0.14'})`,
           padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap',
         }}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            {/* クラスタバッジ */}
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10, fontWeight: 600, color: chipColor, background: chipBg, padding: '2px 9px 2px 6px', borderRadius: 999, marginBottom: 5 }}>
-              <span style={{ width: 6, height: 6, borderRadius: '50%', background: color, flexShrink: 0 }} />{clusterName}
-            </span>
+            {/* クラスタバッジ + 固定インジケーター */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10, fontWeight: 600, color: chipColor, background: chipBg, padding: '2px 9px 2px 6px', borderRadius: 999 }}>
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: color, flexShrink: 0 }} />{clusterName}
+              </span>
+              {pinned && (
+                <span style={{ fontSize: 10, color: color, fontWeight: 600, background: chipBg, padding: '2px 8px', borderRadius: 999 }}>
+                  📌 固定中
+                </span>
+              )}
+            </div>
 
             {/* 研究室名 */}
             <p style={{ fontSize: 15, fontWeight: 700, margin: '0 0 4px', color: 'var(--text)', lineHeight: 1.3 }}>{lab.name}</p>
 
-            {/* メタ情報グリッド */}
+            {/* メタ情報 */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginBottom: 7 }}>
               {facultyNames.length > 0 && (
                 <p style={{ fontSize: 11, color: 'var(--muted)', margin: 0, lineHeight: 1.4 }}>
@@ -414,6 +425,13 @@ export default function ExplorePage() {
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+            {/* 閉じるボタン（固定モード時のみ表示） */}
+            {pinned && (
+              <button onClick={() => setPreview(null)} title="カードを閉じる"
+                style={{ width: 32, height: 32, borderRadius: 8, border: 'none', background: '#F3F4F6', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6B7280', transition: 'background 0.15s' }}
+                onMouseEnter={e => (e.currentTarget.style.background = '#E5E7EB')}
+                onMouseLeave={e => (e.currentTarget.style.background = '#F3F4F6')}>✕</button>
+            )}
             <button onClick={(e) => togglePin(lab.id, e)} title={isPinned ? 'ピンを外す' : 'ピン留め'} style={{ width: 36, height: 36, borderRadius: 10, border: 'none', background: isPinned ? '#FEF9C3' : '#F3F4F6', cursor: 'pointer', fontSize: 17, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.15s,transform 0.1s' }}
               onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.12)')} onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}>{isPinned ? '⭐' : '☆'}</button>
             <Link href={`/lab/${lab.id}`} className="detail-btn" style={{ display: 'inline-block', padding: '9px 18px', borderRadius: 10, background: color, color: 'white', fontSize: 13, fontWeight: 600, textDecoration: 'none', letterSpacing: '0.01em', whiteSpace: 'nowrap', transition: 'opacity 0.15s' }}>詳細を見る →</Link>
@@ -422,7 +440,6 @@ export default function ExplorePage() {
       </div>
     )
   }
-
   const suggIcon = (type: Suggestion['type']) => type === 'lab' ? <span style={{ fontSize: 14 }}>🏛</span> : type === 'faculty' ? <span style={{ fontSize: 14 }}>👤</span> : <span style={{ fontSize: 14 }}>🏷</span>
 
   // フィルターパネル内容
@@ -701,14 +718,35 @@ export default function ExplorePage() {
                 {/* ノード */}
                 {placed.map(lab => {
                   const color = lab.cluster_id !== null ? C[lab.cluster_id] : '#94A3B8'
-                  const isActive = preview?.id === lab.id, isFocused = focusedLabId === lab.id
+                  const isActive = preview?.lab.id === lab.id, isFocused = focusedLabId === lab.id
                   const isPinned = pins.includes(lab.id), isMatch = matchLab(lab)
                   const r = isActive || isFocused ? 13 : 10
                   return (
                     <g key={lab.id} data-node="true" style={{ cursor: 'pointer' }}
-                      onMouseEnter={() => { if (leaveTimer.current) clearTimeout(leaveTimer.current); enterTimer.current = setTimeout(() => setPreview(lab), 100) }}
-                      onMouseLeave={() => { if (enterTimer.current) clearTimeout(enterTimer.current); leaveTimer.current = setTimeout(() => { if (!cardHovered.current) setPreview(null) }, 5000) }}
-                      onClick={() => { if (dragMoved.current) return; router.push(`/lab/${lab.id}`) }}>
+                      onMouseEnter={() => {
+                        if (leaveTimer.current) clearTimeout(leaveTimer.current)
+                        // 固定モードで別の研究室にホバーしても上書きしない
+                        if (preview?.pinned && preview.lab.id !== lab.id) return
+                        enterTimer.current = setTimeout(() => setPreview({ lab, pinned: false }), 100)
+                      }}
+                      onMouseLeave={() => {
+                        if (enterTimer.current) clearTimeout(enterTimer.current)
+                        // 固定モードなら消えない。一時モードなら2秒後に消える
+                        if (!preview?.pinned) {
+                          leaveTimer.current = setTimeout(() => { if (!cardHovered.current) setPreview(null) }, 2000)
+                        }
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        if (dragMoved.current) return
+                        // クリックで固定表示モードに切り替え（同じノードなら解除）
+                        if (preview?.pinned && preview.lab.id === lab.id) {
+                          setPreview(null)
+                        } else {
+                          if (leaveTimer.current) clearTimeout(leaveTimer.current)
+                          setPreview({ lab, pinned: true })
+                        }
+                      }}>
                       {(isActive || isFocused) && <circle cx={lab.x} cy={lab.y} r={r + 9} fill="none" stroke={color} strokeWidth={1.5} opacity={0.28} />}
                       {isPinned && <circle cx={lab.x} cy={lab.y} r={r + (isActive ? 3 : 2) + 3} fill="none" stroke="#F59E0B" strokeWidth={2} opacity={0.7} />}
                       <circle cx={lab.x} cy={lab.y} r={r + (isActive || isFocused ? 3 : 2)} fill="white" filter={isFocused ? 'url(#ns-focus)' : isActive ? 'url(#ns-h)' : 'url(#ns)'} opacity={isMatch ? 1 : 0.18} />
