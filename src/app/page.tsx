@@ -372,16 +372,11 @@ export default function ExplorePage() {
           padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap',
         }}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            {/* クラスタバッジ + 固定インジケーター */}
+            {/* クラスタバッジ */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10, fontWeight: 600, color: chipColor, background: chipBg, padding: '2px 9px 2px 6px', borderRadius: 999 }}>
                 <span style={{ width: 6, height: 6, borderRadius: '50%', background: color, flexShrink: 0 }} />{clusterName}
               </span>
-              {pinned && (
-                <span style={{ fontSize: 10, color: color, fontWeight: 600, background: chipBg, padding: '2px 8px', borderRadius: 999 }}>
-                  📌 固定中
-                </span>
-              )}
             </div>
 
             {/* 研究室名 */}
@@ -725,8 +720,6 @@ export default function ExplorePage() {
                     <g key={lab.id} data-node="true" style={{ cursor: 'pointer' }}
                       onMouseEnter={() => {
                         if (leaveTimer.current) clearTimeout(leaveTimer.current)
-                        // 固定モードで別の研究室にホバーしても上書きしない
-                        if (preview?.pinned && preview.lab.id !== lab.id) return
                         enterTimer.current = setTimeout(() => setPreview({ lab, pinned: false }), 100)
                       }}
                       onMouseLeave={() => {
