@@ -164,11 +164,15 @@ export default function ExplorePage() {
   // ── 動的レイアウト計算 ──
   const filterLeftOffset = filterOpen ? FILTER_W + 16 + 8 : FILTER_BTN_W + 16
   const legendRightOffset = legendOpen ? LEGEND_W + 16 + 8 : LEGEND_BTN_W + 16
-  // カード表示時のボトム（カードの上にズームコントロールを逃がす）
   const cardVisible = !!preview
-  const zoomBottom = cardVisible ? BOTTOM_PAD + CARD_H_EST + 12 : BOTTOM_PAD
-  // カード: 左=フィルター右端, 右=凡例左端+ズーム幅
+  // ズームコントロールの右端座標（right:16 + ボタン幅34 = 50px）
+  const ZOOM_RIGHT_EDGE = 16 + 34  // 右端からズームボタン左端まで
+  // カードの右端 = 凡例左端 + ズームボタン幅 + 余白
   const cardRight = legendRightOffset + ZOOM_CTRL_W + 8
+  // ズームコントロールがカードと干渉するか（右端が被る場合のみ上へ）
+  // カードの右端 = svgW - cardRight。ズームボタン左端 = svgW - 50
+  // 干渉なし = カード右端 < ズームボタン左端、つまりcardRight > 50
+  const zoomBottom = (cardVisible && cardRight <= ZOOM_RIGHT_EDGE + 8) ? BOTTOM_PAD + CARD_H_EST + 12 : BOTTOM_PAD
 
   useEffect(() => {
     const onResize = () => { setSvgW(window.innerWidth); setSvgH(window.innerHeight); fittedRef.current = false }
@@ -807,7 +811,7 @@ export default function ExplorePage() {
           </svg>
 
           {/* ── フィルターパネル ── */}
-          <div style={{ position: 'absolute', top: 120, left: 16, bottom: 72, zIndex: 20, display: 'flex', alignItems: 'flex-start', gap: 8, pointerEvents: 'none' }}>
+          <div style={{ position: 'absolute', top: 80, left: 16, bottom: 72, zIndex: 20, display: 'flex', alignItems: 'flex-start', gap: 8, pointerEvents: 'none' }}>
             {/* パネル本体 */}
             <div style={{ width: filterOpen ? FILTER_W : 0, opacity: filterOpen ? 1 : 0, overflow: 'hidden', transition: 'width 0.22s ease, opacity 0.18s ease', pointerEvents: filterOpen ? 'auto' : 'none', height: '100%' }}>
               <div style={{ width: FILTER_W, height: '100%', background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', borderRadius: 14, border: '1px solid rgba(229,231,235,0.9)', boxShadow: '0 4px 20px rgba(17,24,39,0.12)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -895,20 +899,32 @@ export default function ExplorePage() {
               title={legendOpen ? '凡例を閉じる' : '凡例を開く'}>
               {activeCluster !== null
                 ? <span style={{ width: 11, height: 11, borderRadius: '50%', background: C[activeCluster], display: 'inline-block' }} />
-                : <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth={2} strokeLinecap="round"><circle cx="12" cy="12" r="3"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/></svg>
+                : <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="5" cy="6" r="1.5" fill="#6B7280"/>
+                    <line x1="9" y1="6" x2="20" y2="6"/>
+                    <circle cx="5" cy="12" r="1.5" fill="#6B7280"/>
+                    <line x1="9" y1="12" x2="20" y2="12"/>
+                    <circle cx="5" cy="18" r="1.5" fill="#6B7280"/>
+                    <line x1="9" y1="18" x2="20" y2="18"/>
+                  </svg>
               }
             </button>
           </div>
 
-          {/* ズームコントロール（カード表示時は上に逃げる） */}
+          {/* ズームコントロール＋ホームボタン（干渉時のみ上へ） */}
           <div style={{ position: 'absolute', bottom: zoomBottom, right: 16, display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'center', transition: 'bottom 0.22s ease', zIndex: 20 }}>
             <button className="zoom-btn" onClick={() => applyZoom(zoom + ZOOM_STEP)} disabled={zoom >= MAX_ZOOM} style={{ width: 34, height: 34, borderRadius: 10, background: 'white', border: 'none', boxShadow: '0 2px 8px rgba(17,24,39,0.12)', fontSize: 20, color: '#374151', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontFamily: 'monospace' }}>+</button>
             <div style={{ width: 34, height: 22, borderRadius: 6, background: 'rgba(255,255,255,0.9)', boxShadow: '0 1px 4px rgba(17,24,39,0.08)', fontSize: 10, color: 'var(--muted)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{Math.round(zoom * 100)}%</div>
             <button className="zoom-btn" onClick={() => applyZoom(zoom - ZOOM_STEP)} disabled={zoom <= fitZoom} style={{ width: 34, height: 34, borderRadius: 10, background: 'white', border: 'none', boxShadow: '0 2px 8px rgba(17,24,39,0.12)', fontSize: 22, color: '#374151', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontFamily: 'monospace' }}>−</button>
+            {/* ホームボタン（リセット） */}
+            <button className="zoom-btn" onClick={() => { setFocusedLabId(null); doFit(svgW, svgH, labs.map(l => l.map_x != null ? MAP_MARGIN + l.map_x * 2 : MAP_MARGIN + 400), labs.map(l => l.map_y != null ? MAP_MARGIN + l.map_y * 2 : MAP_MARGIN + 300)) }}
+              title="全体表示に戻す" style={{ width: 34, height: 34, borderRadius: 10, background: 'white', border: 'none', boxShadow: '0 2px 8px rgba(17,24,39,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+              <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="#374151" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H5a1 1 0 01-1-1V9.5z"/>
+                <path d="M9 21V12h6v9"/>
+              </svg>
+            </button>
           </div>
-
-          <button className="reset-btn" onClick={() => { setFocusedLabId(null); doFit(svgW, svgH, labs.map(l => l.map_x != null ? MAP_MARGIN + l.map_x * 2 : MAP_MARGIN + 400), labs.map(l => l.map_y != null ? MAP_MARGIN + l.map_y * 2 : MAP_MARGIN + 300)) }}
-            style={{ position: 'absolute', bottom: BOTTOM_PAD, left: filterLeftOffset, fontSize: 11, color: 'var(--muted)', background: 'white', border: 'none', borderRadius: 8, padding: '5px 10px', boxShadow: '0 2px 8px rgba(17,24,39,0.10)', cursor: 'pointer', fontFamily: 'var(--font)', transition: 'background 0.1s, left 0.22s ease' }}>リセット</button>
 
           {/* クラスタパネル */}
           {clusterPanel !== null && (
