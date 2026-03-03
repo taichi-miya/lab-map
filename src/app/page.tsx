@@ -68,7 +68,12 @@ const NODE_MAX_Y = MAP_MARGIN + H
 // グリッド間隔（論理px固定 → ズームで視覚的に拡縮）
 const GRID_SIZE = 200
 
-const MIN_ZOOM = 0.03, MAX_ZOOM = 3.0, ZOOM_STEP = 0.25
+const MIN_ZOOM_HARD = 0.03  // 絶対下限（fitZoomより小さくはならない）
+const MAX_ZOOM = 3.0, ZOOM_STEP = 0.25
+// ラベル表示の閾値（これ未満でラベル非表示）
+const LABEL_SHOW_ZOOM = 0.18
+// ノードサイズ縮小の閾値
+const NODE_SHRINK_ZOOM = 0.12
 
 function clampOffset(ox: number, oy: number, zoom: number, svgW = 800, svgH = 600) {
   const PAD = 80
@@ -79,7 +84,7 @@ function clampOffset(ox: number, oy: number, zoom: number, svgW = 800, svgH = 60
 function loadPins(): string[] { try { return JSON.parse(localStorage.getItem(PIN_KEY) ?? '[]') } catch { return [] } }
 function savePins(ids: string[]) { try { localStorage.setItem(PIN_KEY, JSON.stringify(ids)) } catch {} }
 function calcFocusTransform(x: number, y: number, targetZoom = 2, svgW = 800, svgH = 600) {
-  const clamped = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, targetZoom))
+  const clamped = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM_HARD, targetZoom))
   return { zoom: clamped, offset: clampOffset(svgW / 2 - x * clamped, svgH / 2 - y * clamped, clamped, svgW, svgH) }
 }
 
@@ -106,6 +111,7 @@ export default function ExplorePage() {
   const [chipHover, setChipHover] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
   const [zoom, setZoom] = useState(1)
+  const [fitZoom, setFitZoom] = useState(MIN_ZOOM_HARD)  // 全体フィット時のzoom = 動的なMIN_ZOOM
   const [offset, setOffset] = useState({ x: 0, y: 0 })
   const [pins, setPins] = useState<string[]>([])
   const [showPinList, setShowPinList] = useState(false)
@@ -175,6 +181,7 @@ export default function ExplorePage() {
     const minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys)
     const PAD = 60
     const z = Math.min((w - PAD * 2) / (maxX - minX), (h - PAD * 2) / (maxY - minY), MAX_ZOOM)
+    setFitZoom(z)
     setZoom(z)
     setOffset({ x: w / 2 - ((minX + maxX) / 2) * z, y: h / 2 - ((minY + maxY) / 2) * z })
   }, [])
@@ -312,7 +319,7 @@ export default function ExplorePage() {
   })
 
   const applyZoom = (newZoom: number) => {
-    const clamped = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, newZoom))
+    const clamped = Math.min(MAX_ZOOM, Math.max(fitZoom, newZoom))
     const cx = svgW / 2, cy = svgH / 2
     setZoom(clamped)
     setOffset(clampOffset(cx - (cx - offset.x) * (clamped / zoom), cy - (cy - offset.y) * (clamped / zoom), clamped, svgW, svgH))
@@ -367,7 +374,7 @@ export default function ExplorePage() {
         }}
       >
         <div style={{
-          background: 'rgba(255,255,255,0.72)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
+          background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)',
           borderRadius: 16, border: `1.5px solid ${pinned ? color : strokeColor}`, boxShadow: `0 4px 24px rgba(17,24,39,${pinned ? '0.18' : '0.14'})`,
           padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap',
         }}>
@@ -715,7 +722,10 @@ export default function ExplorePage() {
                   const color = lab.cluster_id !== null ? C[lab.cluster_id] : '#94A3B8'
                   const isActive = preview?.lab.id === lab.id, isFocused = focusedLabId === lab.id
                   const isPinned = pins.includes(lab.id), isMatch = matchLab(lab)
-                  const r = isActive || isFocused ? 13 : 10
+                  // ズームに応じてノードサイズとラベル表示を調整
+                  const showLabel = zoom >= LABEL_SHOW_ZOOM
+                  const nodeScale = zoom < NODE_SHRINK_ZOOM ? Math.max(0.4, zoom / NODE_SHRINK_ZOOM) : 1
+                  const r = (isActive || isFocused ? 13 : 10) * nodeScale
                   return (
                     <g key={lab.id} data-node="true" style={{ cursor: 'pointer' }}
                       onMouseEnter={() => {
@@ -745,7 +755,14 @@ export default function ExplorePage() {
                       <circle cx={lab.x} cy={lab.y} r={r + (isActive || isFocused ? 3 : 2)} fill="white" filter={isFocused ? 'url(#ns-focus)' : isActive ? 'url(#ns-h)' : 'url(#ns)'} opacity={isMatch ? 1 : 0.18} />
                       <circle cx={lab.x} cy={lab.y} r={r} fill={color} opacity={isMatch ? (isActive || isFocused ? 1 : 0.82) : 0.15} />
                       {isPinned && <text x={lab.x} y={lab.y + 4} textAnchor="middle" fontSize={(isActive ? 11 : 9) / zoom} style={{ pointerEvents: 'none' }}>⭐</text>}
-                      <text x={lab.x} y={lab.y + r + 15} textAnchor="middle" fontSize={10.5 / zoom} fontWeight={isActive || isFocused || isPinned ? 700 : 500} fill={isActive || isFocused ? color : isPinned ? '#92400E' : '#4B5563'} opacity={isMatch ? 1 : 0.15} style={{ pointerEvents: 'none' }}>{lab.name.slice(0, 14)}</text>
+                      {showLabel && (
+                        <text x={lab.x} y={lab.y + r + 15} textAnchor="middle"
+                          fontSize={10.5 / zoom}
+                          fontWeight={isActive || isFocused || isPinned ? 700 : 500}
+                          fill={isActive || isFocused ? color : isPinned ? '#92400E' : '#4B5563'}
+                          opacity={isMatch ? Math.min(1, (zoom - LABEL_SHOW_ZOOM) / (LABEL_SHOW_ZOOM * 0.5) + 0.3) : 0.15}
+                          style={{ pointerEvents: 'none' }}>{lab.name.slice(0, 14)}</text>
+                      )}
                     </g>
                   )
                 })}
@@ -814,7 +831,7 @@ export default function ExplorePage() {
           <div style={{ position: 'absolute', bottom: 16, right: 16, display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'center' }}>
             <button className="zoom-btn" onClick={() => applyZoom(zoom + ZOOM_STEP)} disabled={zoom >= MAX_ZOOM} style={{ width: 34, height: 34, borderRadius: 10, background: 'white', border: 'none', boxShadow: '0 2px 8px rgba(17,24,39,0.12)', fontSize: 20, color: '#374151', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontFamily: 'monospace' }}>+</button>
             <div style={{ width: 34, height: 22, borderRadius: 6, background: 'rgba(255,255,255,0.9)', boxShadow: '0 1px 4px rgba(17,24,39,0.08)', fontSize: 10, color: 'var(--muted)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{Math.round(zoom * 100)}%</div>
-            <button className="zoom-btn" onClick={() => applyZoom(zoom - ZOOM_STEP)} disabled={zoom <= MIN_ZOOM} style={{ width: 34, height: 34, borderRadius: 10, background: 'white', border: 'none', boxShadow: '0 2px 8px rgba(17,24,39,0.12)', fontSize: 22, color: '#374151', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontFamily: 'monospace' }}>−</button>
+            <button className="zoom-btn" onClick={() => applyZoom(zoom - ZOOM_STEP)} disabled={zoom <= fitZoom} style={{ width: 34, height: 34, borderRadius: 10, background: 'white', border: 'none', boxShadow: '0 2px 8px rgba(17,24,39,0.12)', fontSize: 22, color: '#374151', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontFamily: 'monospace' }}>−</button>
           </div>
 
           <button className="reset-btn" onClick={() => { setFocusedLabId(null); doFit(svgW, svgH, labs.map(l => l.map_x != null ? MAP_MARGIN + l.map_x * 2 : MAP_MARGIN + 400), labs.map(l => l.map_y != null ? MAP_MARGIN + l.map_y * 2 : MAP_MARGIN + 300)) }}
