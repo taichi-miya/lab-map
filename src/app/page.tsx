@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState, useRef, useCallback } from 'react'
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 
@@ -220,6 +220,42 @@ export default function ExplorePage() {
     y: lab.map_y != null ? Math.min(NODE_MAX_Y, Math.max(NODE_MIN_Y, MAP_MARGIN + lab.map_y * 2)) : MAP_MARGIN + 100 + Math.floor(i / 5) * 120,
   }))
   const pinnedLabs = placed.filter(l => pins.includes(l.id))
+
+  // ラベル間引き：画面上でラベルが重なるノードはラベルを非表示にする
+  // 各ノードのラベル幅を推定し、近すぎるペアはランクの低い方を非表示
+  const visibleLabelIds = useMemo(() => {
+    if (zoom < LABEL_SHOW_ZOOM) return new Set<string>()
+    // 画面座標でのラベル推定幅・高さ
+    const labelW = (name: string) => Math.min(name.length, 14) * 7.5  // 論理px換算
+    const labelH = 14
+    const pad = 6  // ラベル間の余白（論理px）
+    // 優先度: アクティブ > ピン留め > 通常（インデックス順）
+    const sorted = [...placed].sort((a, b) => {
+      const ap = pins.includes(a.id) ? 0 : 1
+      const bp = pins.includes(b.id) ? 0 : 1
+      return ap - bp
+    })
+    const shown = new Set<string>()
+    // 既に表示確定したラベルのBBoxリスト（論理座標）
+    const boxes: { x1: number; y1: number; x2: number; y2: number }[] = []
+    for (const lab of sorted) {
+      const lw = labelW(lab.name) / zoom
+      const lh = labelH / zoom
+      const lx = lab.x - lw / 2
+      const ly = lab.y + (13 / zoom)  // ノード下
+      const p = pad / zoom
+      // 既存ボックスと重なるか確認
+      const overlaps = boxes.some(b =>
+        lx - p < b.x2 && lx + lw + p > b.x1 &&
+        ly - p < b.y2 && ly + lh + p > b.y1
+      )
+      if (!overlaps) {
+        shown.add(lab.id)
+        boxes.push({ x1: lx, y1: ly, x2: lx + lw, y2: ly + lh })
+      }
+    }
+    return shown
+  }, [placed, zoom, pins])
 
   const commitSuggestion = useCallback((s: Suggestion) => {
     setShowSugg(false); setSuggIndex(-1)
@@ -723,7 +759,7 @@ export default function ExplorePage() {
                   const isActive = preview?.lab.id === lab.id, isFocused = focusedLabId === lab.id
                   const isPinned = pins.includes(lab.id), isMatch = matchLab(lab)
                   // ズームに応じてノードサイズとラベル表示を調整
-                  const showLabel = zoom >= LABEL_SHOW_ZOOM
+                  const showLabel = zoom >= LABEL_SHOW_ZOOM && visibleLabelIds.has(lab.id)
                   const nodeScale = zoom < NODE_SHRINK_ZOOM ? Math.max(0.4, zoom / NODE_SHRINK_ZOOM) : 1
                   const r = (isActive || isFocused ? 13 : 10) * nodeScale
                   return (
