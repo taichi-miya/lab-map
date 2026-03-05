@@ -58,6 +58,18 @@ export default async function LabDetail({ params }: { params: Promise<{ id: stri
   const chipBg       = ci !== null ? C_CHIP[ci]          : 'rgba(148,163,184,0.12)'
   const strokeColor  = ci !== null ? C_STROKE[ci]        : 'rgba(148,163,184,0.35)'
 
+  // 教員名を分割
+  const memberNames: string[] = lab.faculty_name
+    ? lab.faculty_name.split('・').map((n: string) => n.trim()).filter(Boolean)
+    : []
+
+  // summary_bullets をパース
+  const bullets: string[] = (() => {
+    if (!lab.summary_bullets) return []
+    if (Array.isArray(lab.summary_bullets)) return lab.summary_bullets
+    try { return JSON.parse(lab.summary_bullets) } catch { return [] }
+  })()
+
   return (
     <main style={{
       maxWidth: 680, margin: '0 auto', padding: '32px 20px 64px',
@@ -91,14 +103,42 @@ export default async function LabDetail({ params }: { params: Promise<{ id: stri
             <span style={{ width: 7, height: 7, borderRadius: '50%', background: clusterColor, flexShrink: 0 }} />
             {clusterName}
           </span>
-          {/* ← Client Component */}
           <PinButton labId={id} />
         </div>
 
-        <h1 style={{ fontSize: 24, fontWeight: 800, margin: '0 0 4px', letterSpacing: '-0.02em', lineHeight: 1.2 }}>
+        <h1 style={{ fontSize: 24, fontWeight: 800, margin: '0 0 16px', letterSpacing: '-0.02em', lineHeight: 1.2 }}>
           {lab.name}
         </h1>
-        <p style={{ fontSize: 14, color: '#6B7280', margin: '0 0 12px' }}>{lab.faculty_name}</p>
+
+        {/* 教員チップ一覧 */}
+        {memberNames.length > 0 && (
+          <div style={{ marginBottom: 20 }}>
+            <p style={{ fontSize: 12, fontWeight: 700, color: '#9CA3AF', marginBottom: 8, letterSpacing: '0.05em' }}>
+              STAFF
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {memberNames.map((name, i) => (
+                <div key={i} style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '8px 12px', borderRadius: 10,
+                  background: '#F9FAFB', border: '1px solid #F3F4F6',
+                }}>
+                  <span style={{ fontSize: 14, fontWeight: 600, color: '#1F2937' }}>{name}</span>
+                  <span style={{
+                    fontSize: 11, color: '#9CA3AF',
+                    display: 'inline-flex', alignItems: 'center', gap: 4,
+                  }}>
+                    <span style={{
+                      width: 6, height: 6, borderRadius: '50%',
+                      background: '#D1D5DB', display: 'inline-block',
+                    }} />
+                    ResearchMap URL: 近日更新予定
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {lab.lab_url && (
           <a href={lab.lab_url} target="_blank" rel="noopener noreferrer" style={{
@@ -127,15 +167,37 @@ export default async function LabDetail({ params }: { params: Promise<{ id: stri
         )}
 
         {/* 研究概要 */}
-        <div style={{
-          borderTop: '1px solid #F3F4F6', paddingTop: 20,
-        }}>
+        <div style={{ borderTop: '1px solid #F3F4F6', paddingTop: 20 }}>
           <p style={{ fontSize: 12, fontWeight: 700, color: '#9CA3AF', marginBottom: 10, letterSpacing: '0.05em' }}>
             研究概要
           </p>
+
+          {/* 箇条書き3点 */}
+          {bullets.length > 0 && (
+            <div style={{
+              background: chipBg, borderRadius: 12, padding: '14px 16px',
+              marginBottom: 16, border: `1px solid ${strokeColor}`,
+            }}>
+              {bullets.map((b, i) => (
+                <div key={i} style={{
+                  display: 'flex', alignItems: 'flex-start', gap: 8,
+                  marginBottom: i < bullets.length - 1 ? 8 : 0,
+                }}>
+                  <span style={{
+                    width: 6, height: 6, borderRadius: '50%',
+                    background: clusterColor, flexShrink: 0, marginTop: 6,
+                  }} />
+                  <p style={{ fontSize: 13, lineHeight: 1.7, color: '#374151', margin: 0 }}>{b}</p>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* 概要文 */}
           <p style={{ fontSize: 14, lineHeight: 1.85, color: '#374151', whiteSpace: 'pre-wrap', margin: 0 }}>
-            {lab.summary_text ?? '（未取得）'}
+            {lab.summary_long ?? lab.summary_text ?? '（未取得）'}
           </p>
+
           {lab.summary_source_url && (
             <a href={lab.summary_source_url} target="_blank" rel="noopener noreferrer" style={{
               fontSize: 11, color: '#9CA3AF', textDecoration: 'underline', marginTop: 10, display: 'inline-block',
@@ -166,7 +228,6 @@ export default async function LabDetail({ params }: { params: Promise<{ id: stri
                     padding: '12px 16px', borderRadius: 12,
                     background: 'white', border: '1px solid #F3F4F6',
                     textDecoration: 'none', color: 'inherit',
-                    transition: 'border-color 0.15s, box-shadow 0.15s',
                     boxShadow: '0 1px 4px rgba(17,24,39,0.04)',
                   }}
                   onMouseEnter={e => {
