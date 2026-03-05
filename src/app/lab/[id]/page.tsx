@@ -1,11 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import PinButton from '@/components/PinButton'
-
-const CLUSTER_COLORS = ['#3B82F6', '#22C55E', '#F59E0B', '#EF4444']
-const CLUSTER_NAMES  = ['プラズマ・核融合', '材料・照射', '計測・レーザー', '安全・システム']
-const C_CHIP = ['rgba(59,130,246,0.12)', 'rgba(34,197,94,0.12)', 'rgba(245,158,11,0.12)', 'rgba(239,68,68,0.12)']
-const C_STROKE = ['rgba(59,130,246,0.35)', 'rgba(34,197,94,0.35)', 'rgba(245,158,11,0.35)', 'rgba(239,68,68,0.35)']
+import { getClusterStyle } from '@/lib/clusters'
 
 export default async function LabDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -52,12 +48,8 @@ export default async function LabDetail({ params }: { params: Promise<{ id: stri
     .map(n => ({ ...n, lab: neighborLabs?.find(l => l.id === n.id) }))
     .filter(n => n.lab)
 
-  const ci = lab.cluster_id ?? null
-  const clusterColor = ci !== null ? CLUSTER_COLORS[ci] : '#94A3B8'
-  const clusterName  = ci !== null ? CLUSTER_NAMES[ci]  : '未分類'
-  const chipBg       = ci !== null ? C_CHIP[ci]          : 'rgba(148,163,184,0.12)'
-  const strokeColor  = ci !== null ? C_STROKE[ci]        : 'rgba(148,163,184,0.35)'
-
+  const { color: clusterColor, name: clusterName, chipBg, stroke: strokeColor } = getClusterStyle(lab.cluster_id)
+  
   // 教員名を分割
   const memberNames: string[] = lab.faculty_name
     ? lab.faculty_name.split('・').map((n: string) => n.trim()).filter(Boolean)
@@ -216,9 +208,7 @@ export default async function LabDetail({ params }: { params: Promise<{ id: stri
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {neighbors.map((n, i) => {
-              const nci = n.lab!.cluster_id ?? null
-              const nc = nci !== null ? CLUSTER_COLORS[nci] : '#94A3B8'
-              const nChipBg = nci !== null ? C_CHIP[nci] : 'rgba(148,163,184,0.12)'
+              const { color: nc, chipBg: nChipBg } = getClusterStyle(n.lab!.cluster_id)
               return (
                 <Link
                   key={n.id}
