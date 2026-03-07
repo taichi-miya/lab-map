@@ -191,11 +191,11 @@ export default async function LabDetail({ params }: { params: Promise<{ id: stri
           </p>
 
           {lab.summary_source_url && (
-            <a href={lab.summary_source_url} target="_blank" rel="noopener noreferrer" style={{
-              fontSize: 11, color: '#9CA3AF', textDecoration: 'underline', marginTop: 10, display: 'inline-block',
-            }}>
-              出典を見る →
-            </a>
+            <a href={lab.summary_source_url_override ?? lab.summary_source_url} target="_blank" rel="noopener noreferrer" style={{
+            fontSize: 11, color: '#9CA3AF', textDecoration: 'underline', marginTop: 10, display: 'inline-block',
+           }}>
+             出典を見る →
+           </a>
           )}
         </div>
       </div>
