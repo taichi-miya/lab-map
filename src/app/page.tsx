@@ -54,31 +54,23 @@ const FILTER_W = 228
 const FILTER_BTN_W = 52
 const LEGEND_W = 220
 const LEGEND_BTN_W = 36
-const ZOOM_CTRL_W = 52   // ズームコントロール幅
-const ZOOM_CTRL_H = 100  // +/%/- の縦幅
-const CARD_H_EST = 130   // カード推定高さ
+const ZOOM_CTRL_W = 52
+const CARD_H_EST = 130
 const BOTTOM_PAD = 16
 
-// SVG論理空間全体（プロット不可マージン込み）
 const TOTAL_W = 8000, TOTAL_H = 6400
-// 外周プロット不可帯の幅
 const MAP_MARGIN = 800
-// マップ描画領域（TOTAL中央 6400x4800）
-const W = TOTAL_W - MAP_MARGIN * 2  // 6400
-const H = TOTAL_H - MAP_MARGIN * 2  // 4800
-// ノードのプロット可能範囲
+const W = TOTAL_W - MAP_MARGIN * 2
+const H = TOTAL_H - MAP_MARGIN * 2
 const NODE_MIN_X = MAP_MARGIN
 const NODE_MAX_X = MAP_MARGIN + W
 const NODE_MIN_Y = MAP_MARGIN
 const NODE_MAX_Y = MAP_MARGIN + H
-// グリッド間隔（論理px固定 → ズームで視覚的に拡縮）
 const GRID_SIZE = 200
 
-const MIN_ZOOM_HARD = 0.03  // 絶対下限（fitZoomより小さくはならない）
+const MIN_ZOOM_HARD = 0.03
 const MAX_ZOOM = 3.0, ZOOM_STEP = 0.25
-// ラベル表示の閾値（これ未満でラベル非表示）
 const LABEL_SHOW_ZOOM = 0.18
-// ノードサイズ縮小の閾値
 const NODE_SHRINK_ZOOM = 0.12
 
 function clampOffset(ox: number, oy: number, zoom: number, svgW = 800, svgH = 600) {
@@ -102,7 +94,16 @@ function FilterIcon({ active }: { active: boolean }) {
   )
 }
 
-// フィルターモードのタブラベル
+function HamburgerIcon() {
+  return (
+    <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+      <line x1="3" y1="6" x2="21" y2="6"/>
+      <line x1="3" y1="12" x2="21" y2="12"/>
+      <line x1="3" y1="18" x2="21" y2="18"/>
+    </svg>
+  )
+}
+
 const FILTER_TABS: { mode: FilterMode; label: string }[] = [
   { mode: 'course', label: '学科/コース' },
   { mode: 'dept',   label: '専攻' },
@@ -117,29 +118,23 @@ export default function ExplorePage() {
   const [chipHover, setChipHover] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
   const [zoom, setZoom] = useState(1)
-  const [fitZoom, setFitZoom] = useState(MIN_ZOOM_HARD)  // 全体フィット時のzoom = 動的なMIN_ZOOM
+  const [fitZoom, setFitZoom] = useState(MIN_ZOOM_HARD)
   const [offset, setOffset] = useState({ x: 0, y: 0 })
   const [pins, setPins] = useState<string[]>([])
   const [showPinList, setShowPinList] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
 
-  // フィルター状態
   const [labCourses, setLabCourses] = useState<LabCourse[]>([])
   const [filterOpen, setFilterOpen] = useState(true)
   const [legendOpen, setLegendOpen] = useState(true)
   const [filterMode, setFilterMode] = useState<FilterMode>('course')
 
-  // 学科/コースフィルター
   const [selectedCourses, setSelectedCourses] = useState<Set<string>>(new Set())
   const [expandedDepts, setExpandedDepts] = useState<Set<string>>(new Set())
-
-  // 専攻フィルター
   const [selectedDepts, setSelectedDepts] = useState<Set<string>>(new Set())
-
-  // タグフィルター
   const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set())
   const [tagSearch, setTagSearch] = useState('')
 
-  // サジェスト
   const [suggestions, setSuggestions] = useState<Suggestion[]>([])
   const [suggIndex, setSuggIndex] = useState(-1)
   const [showSugg, setShowSugg] = useState(false)
@@ -161,17 +156,11 @@ export default function ExplorePage() {
   const cardHovered = useRef(false)
   const fittedRef = useRef(false)
 
-  // ── 動的レイアウト計算 ──
   const filterLeftOffset = filterOpen ? FILTER_W + 16 + 8 : FILTER_BTN_W + 16
   const legendRightOffset = legendOpen ? LEGEND_W + 16 + 8 : LEGEND_BTN_W + 16
   const cardVisible = !!preview
-  // ズームコントロールの右端座標（right:16 + ボタン幅34 = 50px）
-  const ZOOM_RIGHT_EDGE = 16 + 34  // 右端からズームボタン左端まで
-  // カードの右端 = 凡例左端 + ズームボタン幅 + 余白
+  const ZOOM_RIGHT_EDGE = 16 + 34
   const cardRight = legendRightOffset + ZOOM_CTRL_W + 8
-  // ズームコントロールがカードと干渉するか（右端が被る場合のみ上へ）
-  // カードの右端 = svgW - cardRight。ズームボタン左端 = svgW - 50
-  // 干渉なし = カード右端 < ズームボタン左端、つまりcardRight > 50
   const zoomBottom = (cardVisible && cardRight <= ZOOM_RIGHT_EDGE + 8) ? BOTTOM_PAD + CARD_H_EST + 12 : BOTTOM_PAD
 
   useEffect(() => {
@@ -209,7 +198,6 @@ export default function ExplorePage() {
     doFit(svgW, svgH, labs.map(l => l.map_x != null ? MAP_MARGIN + l.map_x * 2 : MAP_MARGIN + 400), labs.map(l => l.map_y != null ? MAP_MARGIN + l.map_y * 2 : MAP_MARGIN + 300))
   }, [labs, svgW, svgH, doFit])
 
-  // サジェスト生成
   useEffect(() => {
     const q = query.trim().toLowerCase()
     if (!q) { setSuggestions([]); setShowSugg(false); setSuggIndex(-1); return }
@@ -230,7 +218,6 @@ export default function ExplorePage() {
     setPins(prev => { const next = prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]; savePins(next); return next })
   }, [])
 
-  // placed: ノード座標をW×Hにスケール（元座標 3200×2400 → 6400×4800）
   const placed = labs.map((lab, i) => ({
     ...lab,
     x: lab.map_x != null ? Math.min(NODE_MAX_X, Math.max(NODE_MIN_X, MAP_MARGIN + lab.map_x * 2)) : MAP_MARGIN + 100 + (i % 5) * 130,
@@ -238,7 +225,6 @@ export default function ExplorePage() {
   }))
   const pinnedLabs = placed.filter(l => pins.includes(l.id))
 
-  // ラベル間引き：画面上でラベルが重なるノードはラベルを非表示にする
   const visibleLabelIds = useMemo(() => {
     if (zoom < LABEL_SHOW_ZOOM) return new Set<string>()
     const labelW = (name: string) => Math.min(name.length, 14) * 7.5
@@ -285,7 +271,6 @@ export default function ExplorePage() {
     else if (e.key === 'Escape') { setShowSugg(false); setSuggIndex(-1) }
   }
 
-  // 学科→コース辞書
   const deptCourseMap = new Map<string, string[]>()
   for (const c of labCourses) {
     if (!deptCourseMap.has(c.undergraduate_dept)) deptCourseMap.set(c.undergraduate_dept, [])
@@ -293,15 +278,10 @@ export default function ExplorePage() {
     if (!cs.includes(c.course)) cs.push(c.course)
   }
   const deptList = [...deptCourseMap.keys()]
-
-  // 専攻リスト（ユニーク）
   const deptNameList = [...new Set(labs.map(l => l.dept).filter(Boolean) as string[])].sort()
-
-  // 全タグリスト
   const allTags = [...new Set(labs.flatMap(l => l.tags))].sort()
   const filteredTags = tagSearch ? allTags.filter(t => t.toLowerCase().includes(tagSearch.toLowerCase())) : allTags
 
-  // フィルター操作
   const toggleDeptExpand = (dept: string) => setExpandedDepts(prev => { const n = new Set(prev); n.has(dept) ? n.delete(dept) : n.add(dept); return n })
   const toggleCourse = (dept: string, course: string) => { const key = `${dept}::${course}`; setSelectedCourses(prev => { const n = new Set(prev); n.has(key) ? n.delete(key) : n.add(key); return n }) }
   const toggleAllCourses = (dept: string) => {
@@ -311,7 +291,6 @@ export default function ExplorePage() {
   }
   const toggleDept = (dept: string) => setSelectedDepts(prev => { const n = new Set(prev); n.has(dept) ? n.delete(dept) : n.add(dept); return n })
   const toggleTag = (tag: string) => setSelectedTags(prev => { const n = new Set(prev); n.has(tag) ? n.delete(tag) : n.add(tag); return n })
-
   const clearFilter = () => { setSelectedCourses(new Set()); setSelectedDepts(new Set()); setSelectedTags(new Set()) }
 
   const hasCourseFilter = selectedCourses.size > 0
@@ -320,7 +299,6 @@ export default function ExplorePage() {
   const hasFilter = hasCourseFilter || hasDeptFilter || hasTagFilter
   const filterCount = selectedCourses.size + selectedDepts.size + selectedTags.size
 
-  // フィルターモード切り替え（排他制御：学科コース↔専攻）
   const switchMode = (mode: FilterMode) => {
     if (mode === filterMode) return
     if ((mode === 'course' && hasDeptFilter) || (mode === 'dept' && hasCourseFilter)) {
@@ -347,7 +325,6 @@ export default function ExplorePage() {
     return lab.name.toLowerCase().includes(q) || (lab.faculty_name ?? '').toLowerCase().includes(q) || lab.tags.some(t => t.toLowerCase().includes(q))
   }, [query, activeCluster, selectedCourses, selectedDepts, selectedTags, labCourses, hasCourseFilter, hasDeptFilter, hasTagFilter])
 
-  // 研究室のコース情報取得
   const getLabCourseInfo = (labId: string) => {
     const entries = labCourses.filter(c => c.lab_id === labId)
     if (entries.length === 0) return null
@@ -385,10 +362,9 @@ export default function ExplorePage() {
   }
   const handleMouseUp = () => { isDragging.current = false }
 
-  // マウスホイールでズーム（カーソル位置基準・細かい刻み）
   const handleWheel = useCallback((e: React.WheelEvent<SVGSVGElement>) => {
     e.preventDefault()
-    const WHEEL_STEP = 0.06  // ボタンの ZOOM_STEP=0.25 より細かく
+    const WHEEL_STEP = 0.06
     const rect = svgRef.current?.getBoundingClientRect()
     if (!rect) return
     const mx = e.clientX - rect.left
@@ -425,8 +401,6 @@ export default function ExplorePage() {
     const clusterName = lab.cluster_id !== null ? CLUSTER_NAMES[ci] : '未分類'
     const isPinned = pins.includes(lab.id)
     const courseInfo = getLabCourseInfo(lab.id)
-
-    // 教員名複数対応（「、」区切り想定）
     const facultyNames = lab.faculty_name ? lab.faculty_name.split(/[、,，]/).map(s => s.trim()).filter(Boolean) : []
 
     return (
@@ -445,17 +419,12 @@ export default function ExplorePage() {
           padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap',
         }}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            {/* クラスタバッジ */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10, fontWeight: 600, color: chipColor, background: chipBg, padding: '2px 9px 2px 6px', borderRadius: 999 }}>
                 <span style={{ width: 6, height: 6, borderRadius: '50%', background: color, flexShrink: 0 }} />{clusterName}
               </span>
             </div>
-
-            {/* 研究室名 */}
             <p style={{ fontSize: 15, fontWeight: 700, margin: '0 0 4px', color: 'var(--text)', lineHeight: 1.3 }}>{lab.name}</p>
-
-            {/* メタ情報 */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginBottom: 7 }}>
               {facultyNames.length > 0 && (
                 <p style={{ fontSize: 11, color: 'var(--muted)', margin: 0, lineHeight: 1.4 }}>
@@ -481,8 +450,6 @@ export default function ExplorePage() {
                 </p>
               )}
             </div>
-
-            {/* タグ */}
             {lab.tags.length > 0 && (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
                 {lab.tags.slice(0, 5).map((t, i) => (
@@ -491,9 +458,7 @@ export default function ExplorePage() {
               </div>
             )}
           </div>
-
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-            {/* 閉じるボタン（固定モード時のみ表示） */}
             {pinned && (
               <button onClick={() => setPreview(null)} title="カードを閉じる"
                 style={{ width: 32, height: 32, borderRadius: 8, border: 'none', background: '#F3F4F6', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6B7280', transition: 'background 0.15s' }}
@@ -508,9 +473,9 @@ export default function ExplorePage() {
       </div>
     )
   }
+
   const suggIcon = (type: Suggestion['type']) => type === 'lab' ? <span style={{ fontSize: 14 }}>🏛</span> : type === 'faculty' ? <span style={{ fontSize: 14 }}>👤</span> : <span style={{ fontSize: 14 }}>🏷</span>
 
-  // フィルターパネル内容
   const renderFilterContent = () => {
     if (filterMode === 'course') {
       return (
@@ -555,7 +520,6 @@ export default function ExplorePage() {
         </>
       )
     }
-
     if (filterMode === 'dept') {
       return (
         <>
@@ -576,7 +540,6 @@ export default function ExplorePage() {
         </>
       )
     }
-
     if (filterMode === 'tag') {
       return (
         <>
@@ -610,6 +573,7 @@ export default function ExplorePage() {
         @keyframes slideUpOuter{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
         @keyframes fadeInDown{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
         @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+        @keyframes slideInRight{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:translateX(0)}}
         .zoom-btn{transition:background .1s,transform .1s}
         .zoom-btn:hover:not(:disabled){background:#F3F4F6!important;transform:scale(1.06)}
         .zoom-btn:disabled{opacity:.3!important;cursor:not-allowed!important}
@@ -623,6 +587,8 @@ export default function ExplorePage() {
         .course-row:hover{background:rgba(59,130,246,.05)!important}
         .filter-fab:hover{box-shadow:0 4px 16px rgba(17,24,39,.18)!important}
         .filter-tab{transition:background .15s,color .15s;cursor:pointer;border:none;font-family:var(--font);}
+        .menu-item:hover{background:rgba(59,130,246,0.06)!important}
+        .hamburger-btn:hover{background:#F3F4F6!important}
       `}</style>
 
       <main style={{ position: 'fixed', inset: 0, overflow: 'hidden' }}>
@@ -677,9 +643,10 @@ export default function ExplorePage() {
                 </div>
               )}
             </div>
+
             {/* ピン */}
             <div style={{ position: 'relative' }}>
-              <button onClick={() => setShowPinList(v => !v)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 13px', borderRadius: 10, border: 'none', background: pins.length > 0 ? '#FEF9C3' : '#F3F4F6', color: pins.length > 0 ? '#92400E' : 'var(--muted)', fontSize: 13, fontWeight: 600, cursor: 'pointer', boxShadow: '0 1px 4px var(--shadow)', fontFamily: 'var(--font)', transition: 'background .15s' }}>
+              <button onClick={() => { setShowPinList(v => !v); setMenuOpen(false) }} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 13px', borderRadius: 10, border: 'none', background: pins.length > 0 ? '#FEF9C3' : '#F3F4F6', color: pins.length > 0 ? '#92400E' : 'var(--muted)', fontSize: 13, fontWeight: 600, cursor: 'pointer', boxShadow: '0 1px 4px var(--shadow)', fontFamily: 'var(--font)', transition: 'background .15s' }}>
                 <span style={{ fontSize: 16 }}>{pins.length > 0 ? '⭐' : '☆'}</span>{pins.length > 0 ? `${pins.length}件` : 'ピン'}
               </button>
               {showPinList && (
@@ -710,10 +677,55 @@ export default function ExplorePage() {
                 </div>
               )}
             </div>
+
+            {/* ハンバーガーメニュー */}
+            <div style={{ position: 'relative' }}>
+              <button className="hamburger-btn" onClick={() => { setMenuOpen(v => !v); setShowPinList(false) }}
+                style={{ width: 38, height: 38, borderRadius: 10, border: 'none', background: menuOpen ? '#F3F4F6' : 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6B7280', transition: 'background 0.15s', fontFamily: 'var(--font)' }}>
+                <HamburgerIcon />
+              </button>
+              {menuOpen && (
+                <div style={{ position: 'absolute', top: 'calc(100% + 8px)', right: 0, width: 210, zIndex: 60, background: 'white', borderRadius: 14, border: '1px solid var(--border)', boxShadow: '0 8px 28px rgba(17,24,39,0.12)', overflow: 'hidden', animation: 'slideInRight 0.12s ease' }}>
+                  <div style={{ padding: '8px 0' }}>
+                    <div style={{ padding: '6px 14px 4px', fontSize: 10, fontWeight: 700, color: '#9CA3AF', letterSpacing: '0.06em' }}>メニュー</div>
+                    <Link href="/contact?type=correction" onClick={() => setMenuOpen(false)}
+                      className="menu-item"
+                      style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 14px', textDecoration: 'none', color: '#1F2937', transition: 'background 0.1s' }}>
+                      <span style={{ fontSize: 16, flexShrink: 0 }}>📝</span>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 600 }}>情報修正依頼</div>
+                        <div style={{ fontSize: 11, color: '#9CA3AF' }}>研究室情報の誤りを報告</div>
+                      </div>
+                    </Link>
+                    <Link href="/contact?type=feature" onClick={() => setMenuOpen(false)}
+                      className="menu-item"
+                      style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 14px', textDecoration: 'none', color: '#1F2937', transition: 'background 0.1s' }}>
+                      <span style={{ fontSize: 16, flexShrink: 0 }}>💡</span>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 600 }}>新機能を要望する</div>
+                        <div style={{ fontSize: 11, color: '#9CA3AF' }}>アイデアを送る</div>
+                      </div>
+                    </Link>
+                    <Link href="/contact" onClick={() => setMenuOpen(false)}
+                      className="menu-item"
+                      style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 14px', textDecoration: 'none', color: '#1F2937', transition: 'background 0.1s' }}>
+                      <span style={{ fontSize: 16, flexShrink: 0 }}>💬</span>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 600 }}>お問い合わせ</div>
+                        <div style={{ fontSize: 11, color: '#9CA3AF' }}>不具合報告・ご意見など</div>
+                      </div>
+                    </Link>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </header>
 
-        {showPinList && <div style={{ position: 'fixed', inset: 0, zIndex: 45 }} onClick={() => setShowPinList(false)} />}
+        {/* オーバーレイ */}
+        {(showPinList || menuOpen) && (
+          <div style={{ position: 'fixed', inset: 0, zIndex: 45 }} onClick={() => { setShowPinList(false); setMenuOpen(false) }} />
+        )}
 
         {/* ── マップ ── */}
         <div ref={mapDivRef} style={{ position: 'absolute', inset: 0, background: 'var(--card)', overflow: 'hidden', userSelect: 'none' }}>
@@ -738,9 +750,7 @@ export default function ExplorePage() {
             </defs>
             <g clipPath="url(#map-clip)">
               <g transform={transform}>
-                {/* 全体背景（均一） */}
                 <rect x={0} y={0} width={TOTAL_W} height={TOTAL_H} fill="rgba(248,250,252,0.7)" />
-                {/* グリッド */}
                 {(() => {
                   const lines = []
                   const lw = 1 / zoom
@@ -752,8 +762,6 @@ export default function ExplorePage() {
                   }
                   return lines
                 })()}
-
-                {/* クラスタ楕円 */}
                 {clusterEllipses.map((el, i) => {
                   if (!el) return null
                   const labelW = CLUSTER_NAMES[i].length * 10.5 + 26
@@ -768,8 +776,6 @@ export default function ExplorePage() {
                     </g>
                   )
                 })}
-
-                {/* ノード */}
                 {placed.map(lab => {
                   const color = lab.cluster_id !== null ? C[lab.cluster_id] : '#94A3B8'
                   const isActive = preview?.lab.id === lab.id, isFocused = focusedLabId === lab.id
@@ -819,7 +825,7 @@ export default function ExplorePage() {
             </g>
           </svg>
 
-          {/* ── フィルターパネル ── */}
+          {/* フィルターパネル */}
           <div style={{ position: 'absolute', top: 80, left: 16, bottom: 72, zIndex: 20, display: 'flex', alignItems: 'flex-start', gap: 8, pointerEvents: 'none' }}>
             <div style={{ width: filterOpen ? FILTER_W : 0, opacity: filterOpen ? 1 : 0, overflow: 'hidden', transition: 'width 0.22s ease, opacity 0.18s ease', pointerEvents: filterOpen ? 'auto' : 'none', height: '100%' }}>
               <div style={{ width: FILTER_W, height: '100%', background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', borderRadius: 14, border: '1px solid rgba(229,231,235,0.9)', boxShadow: '0 4px 20px rgba(17,24,39,0.12)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -864,7 +870,7 @@ export default function ExplorePage() {
             </button>
           </div>
 
-          {/* ── 凡例パネル（右上フローティング） ── */}
+          {/* 凡例パネル */}
           <div style={{ position: 'absolute', top: 80, right: 16, zIndex: 25, display: 'flex', alignItems: 'flex-start', gap: 8, pointerEvents: 'none', flexDirection: 'row-reverse' }}>
             <div style={{ width: legendOpen ? LEGEND_W : 0, opacity: legendOpen ? 1 : 0, overflow: 'hidden', transition: 'width 0.22s ease, opacity 0.18s ease', pointerEvents: legendOpen ? 'auto' : 'none', maxHeight: 'calc(100vh - 200px)' }}>
               <div style={{ width: LEGEND_W, background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', borderRadius: 14, border: '1px solid rgba(229,231,235,0.9)', boxShadow: '0 4px 20px rgba(17,24,39,0.12)', overflow: 'hidden' }}>
@@ -908,7 +914,7 @@ export default function ExplorePage() {
             </button>
           </div>
 
-          {/* ズームコントロール＋ホームボタン */}
+          {/* ズームコントロール */}
           <div style={{ position: 'absolute', bottom: zoomBottom, right: 16, display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'center', transition: 'bottom 0.22s ease', zIndex: 20 }}>
             <button className="zoom-btn" onClick={() => applyZoom(zoom + ZOOM_STEP)} disabled={zoom >= MAX_ZOOM} style={{ width: 34, height: 34, borderRadius: 10, background: 'white', border: 'none', boxShadow: '0 2px 8px rgba(17,24,39,0.12)', fontSize: 20, color: '#374151', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontFamily: 'monospace' }}>+</button>
             <div style={{ width: 34, height: 22, borderRadius: 6, background: 'rgba(255,255,255,0.9)', boxShadow: '0 1px 4px rgba(17,24,39,0.08)', fontSize: 10, color: 'var(--muted)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{Math.round(zoom * 100)}%</div>

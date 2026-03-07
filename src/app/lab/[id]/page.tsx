@@ -49,7 +49,7 @@ export default async function LabDetail({ params }: { params: Promise<{ id: stri
     .filter(n => n.lab)
 
   const { color: clusterColor, name: clusterName, chipBg, stroke: strokeColor } = getClusterStyle(lab.cluster_id)
-  
+
   // 教員名を分割
   const memberNames: string[] = lab.faculty_name
     ? lab.faculty_name.split('・').map((n: string) => n.trim()).filter(Boolean)
@@ -61,6 +61,9 @@ export default async function LabDetail({ params }: { params: Promise<{ id: stri
     if (Array.isArray(lab.summary_bullets)) return lab.summary_bullets
     try { return JSON.parse(lab.summary_bullets) } catch { return [] }
   })()
+
+  // 情報修正依頼リンク（研究室IDをクエリに付ける）
+  const contactUrl = `/contact?type=correction&lab_id=${id}&lab_name=${encodeURIComponent(lab.name)}`
 
   return (
     <main style={{
@@ -124,7 +127,7 @@ export default async function LabDetail({ params }: { params: Promise<{ id: stri
                       width: 6, height: 6, borderRadius: '50%',
                       background: '#D1D5DB', display: 'inline-block',
                     }} />
-                    ResearchMap URL: 近日更新予定
+                    ResearchMap: 近日公開予定
                   </span>
                 </div>
               ))}
@@ -132,14 +135,69 @@ export default async function LabDetail({ params }: { params: Promise<{ id: stri
           </div>
         )}
 
-        {lab.lab_url && (
-          <a href={lab.lab_url} target="_blank" rel="noopener noreferrer" style={{
-            display: 'inline-flex', alignItems: 'center', gap: 4,
-            fontSize: 13, color: '#3B82F6', textDecoration: 'none', marginBottom: 20,
-          }}>
-            研究室HP →
-          </a>
-        )}
+        {/* リンク行：研究室HP ＋ SNSアイコン */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 8 }}>
+          {/* 研究室HP */}
+          {lab.lab_url && (
+            <a href={lab.lab_url} target="_blank" rel="noopener noreferrer" style={{
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+              fontSize: 13, color: '#3B82F6', textDecoration: 'none',
+            }}>
+              研究室HP →
+            </a>
+          )}
+
+          {/* SNSアイコン */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            {/* X (Twitter) */}
+            <div style={{ position: 'relative', display: 'inline-flex' }} title="近日公開予定">
+              <div style={{
+                width: 32, height: 32, borderRadius: 8,
+                background: '#F3F4F6', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                opacity: 0.45, cursor: 'default',
+              }}>
+                {/* X アイコン */}
+                <svg width={15} height={15} viewBox="0 0 24 24" fill="#1F2937">
+                  <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.737-8.835L1.254 2.25H8.08l4.253 5.622 5.911-5.622Zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                </svg>
+              </div>
+            </div>
+
+            {/* Instagram */}
+            <div style={{ position: 'relative', display: 'inline-flex' }} title="近日公開予定">
+              <div style={{
+                width: 32, height: 32, borderRadius: 8,
+                background: '#F3F4F6', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                opacity: 0.45, cursor: 'default',
+              }}>
+                {/* Instagram アイコン */}
+                <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="#1F2937" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/>
+                  <circle cx="12" cy="12" r="4"/>
+                  <circle cx="17.5" cy="6.5" r="0.5" fill="#1F2937" stroke="none"/>
+                </svg>
+              </div>
+            </div>
+
+            {/* その他（リンクアイコン） */}
+            <div style={{ position: 'relative', display: 'inline-flex' }} title="近日公開予定">
+              <div style={{
+                width: 32, height: 32, borderRadius: 8,
+                background: '#F3F4F6', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                opacity: 0.45, cursor: 'default',
+              }}>
+                {/* リンクアイコン */}
+                <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="#1F2937" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/>
+                  <path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/>
+                </svg>
+              </div>
+            </div>
+
+            {/* 近日公開予定テキスト */}
+            <span style={{ fontSize: 11, color: '#9CA3AF', marginLeft: 2 }}>近日公開予定</span>
+          </div>
+        </div>
 
         {/* タグ */}
         {lab.lab_tags?.length > 0 && (
@@ -192,10 +250,10 @@ export default async function LabDetail({ params }: { params: Promise<{ id: stri
 
           {lab.summary_source_url && (
             <a href={lab.summary_source_url_override ?? lab.summary_source_url} target="_blank" rel="noopener noreferrer" style={{
-            fontSize: 11, color: '#9CA3AF', textDecoration: 'underline', marginTop: 10, display: 'inline-block',
-           }}>
-             出典を見る →
-           </a>
+              fontSize: 11, color: '#9CA3AF', textDecoration: 'underline', marginTop: 10, display: 'inline-block',
+            }}>
+              出典を見る →
+            </a>
           )}
         </div>
       </div>
@@ -257,7 +315,28 @@ export default async function LabDetail({ params }: { params: Promise<{ id: stri
         </div>
       )}
 
-      <p style={{ fontSize: 11, color: '#D1D5DB', marginTop: 32 }}>
+      {/* フッター：情報修正依頼 */}
+      <div style={{
+        marginTop: 32, padding: '14px 18px', borderRadius: 12,
+        background: '#F9FAFB', border: '1px solid #F3F4F6',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        flexWrap: 'wrap', gap: 8,
+      }}>
+        <p style={{ fontSize: 12, color: '#6B7280', margin: 0, lineHeight: 1.5 }}>
+          情報に誤りや変更がありますか？
+        </p>
+        <Link href={contactUrl} style={{
+          fontSize: 12, color: '#3B82F6', textDecoration: 'none', fontWeight: 600,
+          display: 'inline-flex', alignItems: 'center', gap: 4,
+          padding: '6px 12px', borderRadius: 8,
+          border: '1.5px solid rgba(59,130,246,0.3)',
+          background: 'rgba(59,130,246,0.05)',
+        }}>
+          ✏️ 情報修正を依頼する
+        </Link>
+      </div>
+
+      <p style={{ fontSize: 11, color: '#D1D5DB', marginTop: 16 }}>
         取得元: {lab.summary_source_url ?? '未設定'} ／ 最終取得: {lab.fetched_at?.slice(0, 10) ?? '未取得'}
       </p>
     </main>
