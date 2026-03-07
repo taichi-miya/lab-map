@@ -650,7 +650,7 @@ export default function ExplorePage() {
                 <span style={{ fontSize: 16 }}>{pins.length > 0 ? '⭐' : '☆'}</span>{pins.length > 0 ? `${pins.length}件` : 'ピン'}
               </button>
               {showPinList && (
-                <div style={{ position: 'absolute', top: 'calc(100% + 8px)', right: 0, width: 300, zIndex: 50, background: 'white', borderRadius: 14, border: '1px solid var(--border)', boxShadow: '0 8px 28px rgba(17,24,39,0.12)', overflow: 'hidden', animation: 'fadeIn 0.12s ease' }}>
+                <div style={{ position: 'absolute', top: 'calc(100% + 8px)', right: 0, width: 300, zIndex: 70, background: 'white', borderRadius: 14, border: '1px solid var(--border)', boxShadow: '0 8px 28px rgba(17,24,39,0.12)', overflow: 'hidden', animation: 'fadeIn 0.12s ease' }}>
                   <div style={{ padding: '10px 14px 8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border)' }}>
                     <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)' }}>⭐ ピン留め（{pins.length}件）</span>
                     {pins.length > 0 && <button onClick={() => { setPins([]); savePins([]) }} style={{ fontSize: 11, color: '#EF4444', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px', fontFamily: 'var(--font)' }}>全て外す</button>}
@@ -685,7 +685,7 @@ export default function ExplorePage() {
                 <HamburgerIcon />
               </button>
               {menuOpen && (
-                <div style={{ position: 'absolute', top: 'calc(100% + 8px)', right: 0, width: 210, zIndex: 60, background: 'white', borderRadius: 14, border: '1px solid var(--border)', boxShadow: '0 8px 28px rgba(17,24,39,0.12)', overflow: 'hidden', animation: 'slideInRight 0.12s ease' }}>
+                <div style={{ position: 'absolute', top: 'calc(100% + 8px)', right: 0, width: 210, zIndex: 70, background: 'white', borderRadius: 14, border: '1px solid var(--border)', boxShadow: '0 8px 28px rgba(17,24,39,0.12)', overflow: 'hidden', animation: 'slideInRight 0.12s ease' }}>
                   <div style={{ padding: '8px 0' }}>
                     <div style={{ padding: '6px 14px 4px', fontSize: 10, fontWeight: 700, color: '#9CA3AF', letterSpacing: '0.06em' }}>メニュー</div>
                     <Link href="/contact?type=correction" onClick={() => setMenuOpen(false)}
@@ -722,9 +722,9 @@ export default function ExplorePage() {
           </div>
         </header>
 
-        {/* オーバーレイ */}
+        {/* オーバーレイ（メニュー・ドロップダウンより必ず下に） */}
         {(showPinList || menuOpen) && (
-          <div style={{ position: 'fixed', inset: 0, zIndex: 45 }} onClick={() => { setShowPinList(false); setMenuOpen(false) }} />
+          <div style={{ position: 'fixed', inset: 0, zIndex: 55 }} onClick={() => { setShowPinList(false); setMenuOpen(false) }} />
         )}
 
         {/* ── マップ ── */}
