@@ -155,6 +155,8 @@ export default function ExplorePage() {
   const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const cardHovered = useRef(false)
   const fittedRef = useRef(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+  const pinListRef = useRef<HTMLDivElement>(null)
 
   const filterLeftOffset = filterOpen ? FILTER_W + 16 + 8 : FILTER_BTN_W + 16
   const legendRightOffset = legendOpen ? LEGEND_W + 16 + 8 : LEGEND_BTN_W + 16
@@ -168,6 +170,19 @@ export default function ExplorePage() {
     window.addEventListener('resize', onResize)
     return () => window.removeEventListener('resize', onResize)
   }, [])
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuOpen && menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false)
+      }
+      if (showPinList && pinListRef.current && !pinListRef.current.contains(e.target as Node)) {
+        setShowPinList(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [menuOpen, showPinList])
 
   useEffect(() => {
     setPins(loadPins())
@@ -645,7 +660,7 @@ export default function ExplorePage() {
             </div>
 
             {/* ピン */}
-            <div style={{ position: 'relative' }}>
+            <div ref={pinListRef} style={{ position: 'relative' }}>
               <button onClick={() => { setShowPinList(v => !v); setMenuOpen(false) }} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 13px', borderRadius: 10, border: 'none', background: pins.length > 0 ? '#FEF9C3' : '#F3F4F6', color: pins.length > 0 ? '#92400E' : 'var(--muted)', fontSize: 13, fontWeight: 600, cursor: 'pointer', boxShadow: '0 1px 4px var(--shadow)', fontFamily: 'var(--font)', transition: 'background .15s' }}>
                 <span style={{ fontSize: 16 }}>{pins.length > 0 ? '⭐' : '☆'}</span>{pins.length > 0 ? `${pins.length}件` : 'ピン'}
               </button>
@@ -679,7 +694,7 @@ export default function ExplorePage() {
             </div>
 
             {/* ハンバーガーメニュー */}
-            <div style={{ position: 'relative' }}>
+            <div ref={menuRef} style={{ position: 'relative' }}>
               <button className="hamburger-btn" onClick={() => { setMenuOpen(v => !v); setShowPinList(false) }}
                 style={{ width: 38, height: 38, borderRadius: 10, border: 'none', background: menuOpen ? '#F3F4F6' : 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6B7280', transition: 'background 0.15s', fontFamily: 'var(--font)' }}>
                 <HamburgerIcon />
@@ -722,10 +737,7 @@ export default function ExplorePage() {
           </div>
         </header>
 
-        {/* オーバーレイ（メニュー・ドロップダウンより必ず下に） */}
-        {(showPinList || menuOpen) && (
-          <div style={{ position: 'fixed', inset: 0, zIndex: 55 }} onClick={() => { setShowPinList(false); setMenuOpen(false) }} />
-        )}
+
 
         {/* ── マップ ── */}
         <div ref={mapDivRef} style={{ position: 'absolute', inset: 0, background: 'var(--card)', overflow: 'hidden', userSelect: 'none' }}>
