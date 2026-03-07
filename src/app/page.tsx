@@ -239,29 +239,24 @@ export default function ExplorePage() {
   const pinnedLabs = placed.filter(l => pins.includes(l.id))
 
   // ラベル間引き：画面上でラベルが重なるノードはラベルを非表示にする
-  // 各ノードのラベル幅を推定し、近すぎるペアはランクの低い方を非表示
   const visibleLabelIds = useMemo(() => {
     if (zoom < LABEL_SHOW_ZOOM) return new Set<string>()
-    // 画面座標でのラベル推定幅・高さ
-    const labelW = (name: string) => Math.min(name.length, 14) * 7.5  // 論理px換算
+    const labelW = (name: string) => Math.min(name.length, 14) * 7.5
     const labelH = 14
-    const pad = 6  // ラベル間の余白（論理px）
-    // 優先度: アクティブ > ピン留め > 通常（インデックス順）
+    const pad = 6
     const sorted = [...placed].sort((a, b) => {
       const ap = pins.includes(a.id) ? 0 : 1
       const bp = pins.includes(b.id) ? 0 : 1
       return ap - bp
     })
     const shown = new Set<string>()
-    // 既に表示確定したラベルのBBoxリスト（論理座標）
     const boxes: { x1: number; y1: number; x2: number; y2: number }[] = []
     for (const lab of sorted) {
       const lw = labelW(lab.name) / zoom
       const lh = labelH / zoom
       const lx = lab.x - lw / 2
-      const ly = lab.y + (13 / zoom)  // ノード下
+      const ly = lab.y + (13 / zoom)
       const p = pad / zoom
-      // 既存ボックスと重なるか確認
       const overlaps = boxes.some(b =>
         lx - p < b.x2 && lx + lw + p > b.x1 &&
         ly - p < b.y2 && ly + lh + p > b.y1
@@ -328,7 +323,6 @@ export default function ExplorePage() {
   // フィルターモード切り替え（排他制御：学科コース↔専攻）
   const switchMode = (mode: FilterMode) => {
     if (mode === filterMode) return
-    // 学科コース → 専攻 or 専攻 → 学科コース に切り替えるときは互いをクリア
     if ((mode === 'course' && hasDeptFilter) || (mode === 'dept' && hasCourseFilter)) {
       setSelectedCourses(new Set()); setSelectedDepts(new Set())
     }
@@ -390,6 +384,25 @@ export default function ExplorePage() {
     setOffset(clampOffset(offsetAtDrag.current.x + dx, offsetAtDrag.current.y + dy, zoom, svgW, svgH))
   }
   const handleMouseUp = () => { isDragging.current = false }
+
+  // マウスホイールでズーム（カーソル位置基準・細かい刻み）
+  const handleWheel = useCallback((e: React.WheelEvent<SVGSVGElement>) => {
+    e.preventDefault()
+    const WHEEL_STEP = 0.06  // ボタンの ZOOM_STEP=0.25 より細かく
+    const rect = svgRef.current?.getBoundingClientRect()
+    if (!rect) return
+    const mx = e.clientX - rect.left
+    const my = e.clientY - rect.top
+    const delta = e.deltaY > 0 ? -WHEEL_STEP : WHEEL_STEP
+    const newZoom = Math.min(MAX_ZOOM, Math.max(fitZoom, zoom + delta))
+    setZoom(newZoom)
+    setOffset(clampOffset(
+      mx - (mx - offset.x) * (newZoom / zoom),
+      my - (my - offset.y) * (newZoom / zoom),
+      newZoom, svgW, svgH
+    ))
+  }, [zoom, fitZoom, offset, svgW, svgH])
+
   const transform = `translate(${offset.x},${offset.y}) scale(${zoom})`
   const matchCount = placed.filter(l => matchLab(l)).length
 
@@ -708,7 +721,6 @@ export default function ExplorePage() {
             onMouseDown={handleMouseDown} onMouseMove={handleMouseMove}
             onMouseUp={e => {
               handleMouseUp()
-              // ドラッグでなく、ノードや楕円以外の背景クリックならclusterPanelを閉じる
               if (!dragMoved.current) {
                 const target = e.target as Element
                 if (!target.closest('g[data-node]') && !target.closest('g[data-ellipse]')) {
@@ -716,7 +728,8 @@ export default function ExplorePage() {
                 }
               }
             }}
-            onMouseLeave={handleMouseUp}>
+            onMouseLeave={handleMouseUp}
+            onWheel={handleWheel}>
             <defs>
               <clipPath id="map-clip"><rect x={0} y={0} width={svgW} height={svgH} /></clipPath>
               <filter id="ns" x="-60%" y="-60%" width="220%" height="220%"><feDropShadow dx="0" dy="1" stdDeviation="2.5" floodColor="rgba(17,24,39,0.16)" /></filter>
@@ -727,7 +740,7 @@ export default function ExplorePage() {
               <g transform={transform}>
                 {/* 全体背景（均一） */}
                 <rect x={0} y={0} width={TOTAL_W} height={TOTAL_H} fill="rgba(248,250,252,0.7)" />
-                {/* グリッド（線幅をzoomで割って画面上常に1px相当に） */}
+                {/* グリッド */}
                 {(() => {
                   const lines = []
                   const lw = 1 / zoom
@@ -747,7 +760,6 @@ export default function ExplorePage() {
                   return (
                     <g key={i} data-ellipse="true" style={{ cursor: 'pointer' }} onClick={e => { e.stopPropagation(); setClusterPanel(clusterPanel === i ? null : i) }}>
                       <ellipse cx={el.cx} cy={el.cy} rx={el.rx} ry={el.ry} fill={C_FILL[i]} stroke={clusterPanel === i ? C[i] : C_STROKE[i]} strokeWidth={clusterPanel === i ? 2 : 1} />
-                      {/* ラベル：楕円上端に被るよう動的配置、スケール逆補正で常に同じ画面サイズ */}
                       <g transform={`translate(${el.cx},${el.cy - el.ry + 4}) scale(${1/zoom})`}>
                         <rect x={-(labelW/2)} y={-10} width={labelW} height={20} rx={10} fill="white" stroke={C_STROKE[i]} strokeWidth={1} />
                         <circle cx={-(labelW/2) + 10} cy={0} r={3.5} fill={C[i]} />
@@ -762,7 +774,6 @@ export default function ExplorePage() {
                   const color = lab.cluster_id !== null ? C[lab.cluster_id] : '#94A3B8'
                   const isActive = preview?.lab.id === lab.id, isFocused = focusedLabId === lab.id
                   const isPinned = pins.includes(lab.id), isMatch = matchLab(lab)
-                  // ズームに応じてノードサイズとラベル表示を調整
                   const showLabel = zoom >= LABEL_SHOW_ZOOM && visibleLabelIds.has(lab.id)
                   const nodeScale = zoom < NODE_SHRINK_ZOOM ? Math.max(0.4, zoom / NODE_SHRINK_ZOOM) : 1
                   const r = (isActive || isFocused ? 13 : 10) * nodeScale
@@ -774,7 +785,6 @@ export default function ExplorePage() {
                       }}
                       onMouseLeave={() => {
                         if (enterTimer.current) clearTimeout(enterTimer.current)
-                        // 固定モードなら消えない。一時モードなら2秒後に消える
                         if (!preview?.pinned) {
                           leaveTimer.current = setTimeout(() => { if (!cardHovered.current) setPreview(null) }, 2000)
                         }
@@ -782,7 +792,6 @@ export default function ExplorePage() {
                       onClick={(e) => {
                         e.stopPropagation()
                         if (dragMoved.current) return
-                        // クリックで固定表示モードに切り替え（同じノードなら解除）
                         if (preview?.pinned && preview.lab.id === lab.id) {
                           setPreview(null)
                         } else {
@@ -812,11 +821,8 @@ export default function ExplorePage() {
 
           {/* ── フィルターパネル ── */}
           <div style={{ position: 'absolute', top: 80, left: 16, bottom: 72, zIndex: 20, display: 'flex', alignItems: 'flex-start', gap: 8, pointerEvents: 'none' }}>
-            {/* パネル本体 */}
             <div style={{ width: filterOpen ? FILTER_W : 0, opacity: filterOpen ? 1 : 0, overflow: 'hidden', transition: 'width 0.22s ease, opacity 0.18s ease', pointerEvents: filterOpen ? 'auto' : 'none', height: '100%' }}>
               <div style={{ width: FILTER_W, height: '100%', background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', borderRadius: 14, border: '1px solid rgba(229,231,235,0.9)', boxShadow: '0 4px 20px rgba(17,24,39,0.12)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-
-                {/* パネルヘッダー */}
                 <div style={{ padding: '10px 12px 0', flexShrink: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -825,8 +831,6 @@ export default function ExplorePage() {
                     </div>
                     {hasFilter && <span style={{ fontSize: 11, color: '#6B7280' }}>{matchCount}件</span>}
                   </div>
-
-                  {/* タブ */}
                   <div style={{ display: 'flex', gap: 2, marginBottom: 0, background: 'rgba(243,244,246,0.8)', borderRadius: 8, padding: 2 }}>
                     {FILTER_TABS.map(({ mode, label }) => {
                       const isActive = filterMode === mode
@@ -840,15 +844,10 @@ export default function ExplorePage() {
                     })}
                   </div>
                 </div>
-
                 <div style={{ width: '100%', height: 1, background: 'var(--border)', margin: '8px 0 0', flexShrink: 0 }} />
-
-                {/* コンテンツ */}
                 <div style={{ overflowY: 'auto', flex: 1 }}>
                   {renderFilterContent()}
                 </div>
-
-                {/* 解除ボタン */}
                 {hasFilter && (
                   <div style={{ padding: '8px 12px', borderTop: '1px solid var(--border)', flexShrink: 0 }}>
                     <button onClick={clearFilter} style={{ width: '100%', padding: '6px', fontSize: 11, color: '#EF4444', background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8, cursor: 'pointer', fontFamily: 'var(--font)' }}>✕ 絞り込み解除</button>
@@ -856,8 +855,6 @@ export default function ExplorePage() {
                 )}
               </div>
             </div>
-
-            {/* 漏斗FABボタン */}
             <button className="filter-fab" onClick={() => setFilterOpen(v => !v)}
               style={{ width: 36, height: 36, borderRadius: 10, border: 'none', flexShrink: 0, background: hasFilter ? 'rgba(59,130,246,0.15)' : 'rgba(255,255,255,0.94)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', boxShadow: '0 2px 10px rgba(17,24,39,0.13)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: hasFilter ? '#3B82F6' : '#6B7280', transition: 'background 0.15s,box-shadow 0.15s', pointerEvents: 'auto', position: 'relative' }}>
               <FilterIcon active={hasFilter} />
@@ -911,12 +908,11 @@ export default function ExplorePage() {
             </button>
           </div>
 
-          {/* ズームコントロール＋ホームボタン（干渉時のみ上へ） */}
+          {/* ズームコントロール＋ホームボタン */}
           <div style={{ position: 'absolute', bottom: zoomBottom, right: 16, display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'center', transition: 'bottom 0.22s ease', zIndex: 20 }}>
             <button className="zoom-btn" onClick={() => applyZoom(zoom + ZOOM_STEP)} disabled={zoom >= MAX_ZOOM} style={{ width: 34, height: 34, borderRadius: 10, background: 'white', border: 'none', boxShadow: '0 2px 8px rgba(17,24,39,0.12)', fontSize: 20, color: '#374151', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontFamily: 'monospace' }}>+</button>
             <div style={{ width: 34, height: 22, borderRadius: 6, background: 'rgba(255,255,255,0.9)', boxShadow: '0 1px 4px rgba(17,24,39,0.08)', fontSize: 10, color: 'var(--muted)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{Math.round(zoom * 100)}%</div>
             <button className="zoom-btn" onClick={() => applyZoom(zoom - ZOOM_STEP)} disabled={zoom <= fitZoom} style={{ width: 34, height: 34, borderRadius: 10, background: 'white', border: 'none', boxShadow: '0 2px 8px rgba(17,24,39,0.12)', fontSize: 22, color: '#374151', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontFamily: 'monospace' }}>−</button>
-            {/* ホームボタン（リセット） */}
             <button className="zoom-btn" onClick={() => { setFocusedLabId(null); doFit(svgW, svgH, labs.map(l => l.map_x != null ? MAP_MARGIN + l.map_x * 2 : MAP_MARGIN + 400), labs.map(l => l.map_y != null ? MAP_MARGIN + l.map_y * 2 : MAP_MARGIN + 300)) }}
               title="全体表示に戻す" style={{ width: 34, height: 34, borderRadius: 10, background: 'white', border: 'none', boxShadow: '0 2px 8px rgba(17,24,39,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
               <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="#374151" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
@@ -949,7 +945,7 @@ export default function ExplorePage() {
             </div>
           )}
 
-          {/* プレビューカード（フィルター右端〜ズームボタン左端） */}
+          {/* プレビューカード */}
           {preview && (
             <div style={{ position: 'absolute', bottom: BOTTOM_PAD, left: filterLeftOffset, right: cardRight, zIndex: 10, pointerEvents: 'auto', transition: 'left 0.22s ease, right 0.22s ease' }}>
               {renderPreviewCard(preview)}
