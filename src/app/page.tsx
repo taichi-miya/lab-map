@@ -207,6 +207,9 @@ export default function ExplorePage() {
     })()
   }, [])
 
+  const animFrameRef = useRef<number | null>(null)
+
+  // 即時フィット（初期表示・リサイズ用）
   const doFit = useCallback((w: number, h: number, xs: number[], ys: number[]) => {
     const minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys)
     const PAD = 60
@@ -214,6 +217,39 @@ export default function ExplorePage() {
     setFitZoom(z)
     setZoom(z)
     setOffset({ x: w / 2 - ((minX + maxX) / 2) * z, y: h / 2 - ((minY + maxY) / 2) * z })
+  }, [])
+
+  // ease-in-out (logistic風) でズーム＋オフセットをアニメーション
+  const animateToFit = useCallback((
+    w: number, h: number, xs: number[], ys: number[],
+    fromZoom: number, fromOffset: { x: number; y: number },
+    duration = 800
+  ) => {
+    const minX = Math.min(...xs), maxX = Math.max(...xs)
+    const minY = Math.min(...ys), maxY = Math.max(...ys)
+    const PAD = 80
+    const toZoom = Math.min((w - PAD * 2) / (maxX - minX), (h - PAD * 2) / (maxY - minY), MAX_ZOOM)
+    const toOffset = { x: w / 2 - ((minX + maxX) / 2) * toZoom, y: h / 2 - ((minY + maxY) / 2) * toZoom }
+
+    setFitZoom(toZoom)
+
+    if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current)
+    const start = performance.now()
+
+    // cubic-bezier(0.45,0,0.55,1) ≈ ease-in-out をJS側でも再現
+    const easeInOut = (t: number) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2
+
+    const tick = (now: number) => {
+      const t = Math.min((now - start) / duration, 1)
+      const e = easeInOut(t)
+      const z = fromZoom + (toZoom - fromZoom) * e
+      const ox = fromOffset.x + (toOffset.x - fromOffset.x) * e
+      const oy = fromOffset.y + (toOffset.y - fromOffset.y) * e
+      setZoom(z)
+      setOffset({ x: ox, y: oy })
+      if (t < 1) animFrameRef.current = requestAnimationFrame(tick)
+    }
+    animFrameRef.current = requestAnimationFrame(tick)
   }, [])
 
   useEffect(() => {
@@ -306,31 +342,25 @@ export default function ExplorePage() {
     setAnimCoords(coordMap)
     setMapViewMode('scoped')
     setScopedLabel(singleScope.label)
+    setIsAnimating(false)
 
-    // アニメーション完了（0.8s）後にフィット
+    // ノードアニメーション（0.8s）と同時にズーム・オフセットもアニメーション
     const xs = Object.values(coordMap).map(c => c.x)
     const ys = Object.values(coordMap).map(c => c.y)
-    setTimeout(() => {
-      doFit(svgW, svgH, xs, ys)
-      setIsAnimating(false)
-    }, 900)  // アニメーション0.8s + 余裕100ms
-  }, [singleScope, svgW, svgH, doFit])
+    animateToFit(svgW, svgH, xs, ys, zoom, offset, 800)
+  }, [singleScope, svgW, svgH, doFit, animateToFit, zoom, offset])
 
   // ── 全体マップに戻す ──
   const resetMapView = useCallback(() => {
-    setMapViewMode('global')  // まず楕円を戻す
+    setMapViewMode('global')
     setScopedLabel('')
-    setAnimCoords({})          // 座標をクリア → ノードが元の位置へアニメーション
+    setAnimCoords({})
     fittedRef.current = false
-    // アニメーション後にフィット
-    setTimeout(() => {
-      doFit(
-        svgW, svgH,
-        labs.map(l => l.map_x != null ? MAP_MARGIN + l.map_x * 2 : MAP_MARGIN + 400),
-        labs.map(l => l.map_y != null ? MAP_MARGIN + l.map_y * 2 : MAP_MARGIN + 300)
-      )
-    }, 900)
-  }, [svgW, svgH, labs, doFit])
+    // ノードが元位置へ戻るアニメーション（0.8s）と同時にズームも戻す
+    const xs = labs.map(l => l.map_x != null ? MAP_MARGIN + l.map_x * 2 : MAP_MARGIN + 400)
+    const ys = labs.map(l => l.map_y != null ? MAP_MARGIN + l.map_y * 2 : MAP_MARGIN + 300)
+    animateToFit(svgW, svgH, xs, ys, zoom, offset, 800)
+  }, [svgW, svgH, labs, animateToFit, zoom, offset])
 
   // ── placed: animCoordsがあればそちらの座標・cluster_idを使う ──
   const placed = labs.map((lab, i) => {
@@ -928,7 +958,7 @@ export default function ExplorePage() {
             <button className="zoom-btn" onClick={() => applyZoom(zoom + ZOOM_STEP)} disabled={zoom >= MAX_ZOOM} style={{ width: 34, height: 34, borderRadius: 10, background: 'white', border: 'none', boxShadow: '0 2px 8px rgba(17,24,39,0.12)', fontSize: 20, color: '#374151', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontFamily: 'monospace' }}>+</button>
             <div style={{ width: 34, height: 22, borderRadius: 6, background: 'rgba(255,255,255,0.9)', boxShadow: '0 1px 4px rgba(17,24,39,0.08)', fontSize: 10, color: 'var(--muted)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{Math.round(zoom * 100)}%</div>
             <button className="zoom-btn" onClick={() => applyZoom(zoom - ZOOM_STEP)} disabled={zoom <= fitZoom} style={{ width: 34, height: 34, borderRadius: 10, background: 'white', border: 'none', boxShadow: '0 2px 8px rgba(17,24,39,0.12)', fontSize: 22, color: '#374151', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontFamily: 'monospace' }}>−</button>
-            <button className="zoom-btn" onClick={() => { setFocusedLabId(null); if (mapViewMode === 'scoped') { resetMapView() } else { fittedRef.current = false; doFit(svgW, svgH, labs.map(l => l.map_x != null ? MAP_MARGIN + l.map_x * 2 : MAP_MARGIN + 400), labs.map(l => l.map_y != null ? MAP_MARGIN + l.map_y * 2 : MAP_MARGIN + 300)) } }} title="全体表示に戻す" style={{ width: 34, height: 34, borderRadius: 10, background: 'white', border: 'none', boxShadow: '0 2px 8px rgba(17,24,39,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+            <button className="zoom-btn" onClick={() => { setFocusedLabId(null); if (mapViewMode === 'scoped') { resetMapView() } else { fittedRef.current = false; const xs = labs.map(l => l.map_x != null ? MAP_MARGIN + l.map_x * 2 : MAP_MARGIN + 400); const ys = labs.map(l => l.map_y != null ? MAP_MARGIN + l.map_y * 2 : MAP_MARGIN + 300); animateToFit(svgW, svgH, xs, ys, zoom, offset, 500) } }} title="全体表示に戻す" style={{ width: 34, height: 34, borderRadius: 10, background: 'white', border: 'none', boxShadow: '0 2px 8px rgba(17,24,39,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
               <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="#374151" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H5a1 1 0 01-1-1V9.5z"/><path d="M9 21V12h6v9"/></svg>
             </button>
           </div>
