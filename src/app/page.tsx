@@ -188,7 +188,7 @@ export default function ExplorePage() {
     setPins(loadPins())
     ;(async () => {
       const { data: labData } = await supabase.from('labs').select('id,name,faculty_name,map_x,map_y,cluster_id,dept,summary_text')
-      const { data: tagData } = await supabase.from('lab_tags').select('lab_id,tag')
+      const { data: tagData } = await supabase.from('lab_tags').select('lab_id,tag').range(0, 9999)
       const { data: courseData } = await supabase.from('lab_courses').select('lab_id,undergraduate_dept,course')
       const tagMap: Record<string, string[]> = {}
       for (const t of tagData ?? []) { if (!tagMap[t.lab_id]) tagMap[t.lab_id] = []; tagMap[t.lab_id].push(t.tag) }
