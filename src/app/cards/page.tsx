@@ -3,7 +3,6 @@ import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { usePins } from '@/hooks/usePins'
 import { useUser, SignInButton, SignUpButton, UserButton } from '@clerk/nextjs'
-import Link from 'next/link'
 
 type Lab = {
   id: string
@@ -45,7 +44,7 @@ function FilterIcon({ active }: { active: boolean }) {
 }
 
 export default function CardsPage() {
-  const { isLoaded: authLoaded } = useUser()
+  const { isLoaded: authLoaded, isSignedIn } = useUser()
   const { pins, togglePin } = usePins()
 
   const [labs, setLabs] = useState<Lab[]>([])
@@ -309,21 +308,26 @@ export default function CardsPage() {
 
             {/* Clerk認証UI */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <SignInButton mode="modal">
-                <button style={{ padding: '7px 12px', fontSize: 12, fontWeight: 600, borderRadius: 9, border: '1.5px solid #E5E7EB', background: 'white', color: '#374151', cursor: 'pointer', fontFamily: 'inherit', transition: 'border-color .15s' }}
-                  onMouseEnter={e => (e.currentTarget.style.borderColor = '#93C5FD')}
-                  onMouseLeave={e => (e.currentTarget.style.borderColor = '#E5E7EB')}>
-                  ログイン
-                </button>
-              </SignInButton>
-              <SignUpButton mode="modal">
-                <button style={{ padding: '7px 13px', fontSize: 12, fontWeight: 700, borderRadius: 9, border: 'none', background: 'linear-gradient(135deg,#3B82F6,#6366F1)', color: 'white', cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 1px 4px rgba(59,130,246,0.3)', transition: 'opacity .15s' }}
-                  onMouseEnter={e => (e.currentTarget.style.opacity = '0.88')}
-                  onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>
-                  新規登録
-                </button>
-              </SignUpButton>
-              <UserButton />
+              {isSignedIn ? (
+                <UserButton />
+              ) : (
+                <>
+                  <SignInButton mode="modal">
+                    <button style={{ padding: '7px 12px', fontSize: 12, fontWeight: 600, borderRadius: 9, border: '1.5px solid #E5E7EB', background: 'white', color: '#374151', cursor: 'pointer', fontFamily: 'inherit', transition: 'border-color .15s' }}
+                      onMouseEnter={e => (e.currentTarget.style.borderColor = '#93C5FD')}
+                      onMouseLeave={e => (e.currentTarget.style.borderColor = '#E5E7EB')}>
+                      ログイン
+                    </button>
+                  </SignInButton>
+                  <SignUpButton mode="modal">
+                    <button style={{ padding: '7px 13px', fontSize: 12, fontWeight: 700, borderRadius: 9, border: 'none', background: 'linear-gradient(135deg,#3B82F6,#6366F1)', color: 'white', cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 1px 4px rgba(59,130,246,0.3)', transition: 'opacity .15s' }}
+                      onMouseEnter={e => (e.currentTarget.style.opacity = '0.88')}
+                      onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>
+                      新規登録
+                    </button>
+                  </SignUpButton>
+                </>
+              )}
             </div>
           </div>
         </header>
