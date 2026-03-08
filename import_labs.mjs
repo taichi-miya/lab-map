@@ -1,7 +1,5 @@
 // import_labs.mjs
-// 使い方: node import_labs.mjs
-// .env.localから NEXT_PUBLIC_SUPABASE_URL と SUPABASE_SERVICE_ROLE_KEY を読む
-
+// 使い方: node import_labs.mjs data/labs/labs_eng.csv
 import { createClient } from '@supabase/supabase-js'
 import { readFileSync } from 'fs'
 import { parse } from 'csv-parse/sync'
@@ -17,58 +15,57 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 )
 
-const CSV_FILES = [
-  'labs_Mate_kinzoku.csv',
-  'labs_Mate_zairyo.csv',
-  'labs_Mate_chinou.csv',
-]
+// 引数でCSVパスを受け取る（例: node import_labs.mjs data/labs/labs_eng.csv）
+const csvArg = process.argv[2]
+if (!csvArg) {
+  console.error('❌ CSVファイルを引数で指定してください')
+  console.error('例: node import_labs.mjs data/labs/labs_eng.csv')
+  process.exit(1)
+}
 
 let inserted = 0
 let skipped = 0
 
-for (const file of CSV_FILES) {
-  console.log(`\n📂 処理中: ${file}`)
-  const raw = readFileSync(join(__dirname, file), 'utf-8')
-  const rows = parse(raw, { columns: true, skip_empty_lines: true, bom: true })
+console.log(`\n📂 処理中: ${csvArg}`)
+const raw = readFileSync(join(__dirname, csvArg), 'utf-8')
+const rows = parse(raw, { columns: true, skip_empty_lines: true, bom: true })
 
-  for (const row of rows) {
-    const name = row.name?.trim()
-    const faculty_name = row.faculty_name?.trim()
-    const lab_url = row.lab_url?.trim()
-    const dept = row.dept?.trim()
+for (const row of rows) {
+  const name = row.name?.trim()
+  const faculty_name = row.faculty_name?.trim()
+  const lab_url = row.lab_url?.trim()
+  const dept = row.dept?.trim()
 
-    if (!name) { console.log('  ⚠️ name空のためスキップ'); skipped++; continue }
+  if (!name) { console.log('  ⚠️ name空のためスキップ'); skipped++; continue }
 
-    // 既存チェック
-    const { data: existing } = await supabase
-      .from('labs')
-      .select('id')
-      .eq('name', name)
-      .single()
+  const { data: existing } = await supabase
+    .from('labs')
+    .select('id')
+    .eq('name', name)
+    .single()
 
-    if (existing) {
-      console.log(`  ⏭️ スキップ（既存）: ${name}`)
-      skipped++
-      continue
-    }
+  if (existing) {
+    console.log(`  ⏭️ スキップ（既存）: ${name}`)
+    skipped++
+    continue
+  }
 
-    const { error } = await supabase.from('labs').insert({
-      name,
-      faculty_name,
-      lab_url,
-      dept,
-      university: '東北大学',
-      faculty: '工学研究科',
-      extract_status: 'pending',
-    })
+  const { error } = await supabase.from('labs').insert({
+    name,
+    faculty_name,
+    lab_url,
+    dept,
+    university: '東北大学',
+    faculty: '工学研究科',
+    extract_status: 'pending',
+  })
 
-    if (error) {
-      console.error(`  ❌ エラー: ${name}`, error.message)
-      skipped++
-    } else {
-      console.log(`  ✅ 投入: ${name}`)
-      inserted++
-    }
+  if (error) {
+    console.error(`  ❌ エラー: ${name}`, error.message)
+    skipped++
+  } else {
+    console.log(`  ✅ 投入: ${name}`)
+    inserted++
   }
 }
 

@@ -42,3 +42,5 @@ next-env.d.ts
 
 scripts/scrape.mjs
 scripts/embed_umap.py
+# Sentry Config File
+.env.sentry-build-plugin
