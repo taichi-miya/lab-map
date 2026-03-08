@@ -323,7 +323,7 @@ export default function CardsPage() {
                   新規登録
                 </button>
               </SignUpButton>
-              <UserButton afterSignOutUrl="/cards" />
+              <UserButton />
             </div>
           </div>
         </header>
