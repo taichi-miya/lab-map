@@ -1,7 +1,7 @@
 import { Resend } from 'resend'
 import { NextRequest, NextResponse } from 'next/server'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+const resend = new Resend(process.env.RESEND_API_KEY ?? 'dummy')
 
 const TYPE_LABELS: Record<string, string> = {
   correction: '📝 情報修正依頼',
@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
     `
 
     await resend.emails.send({
-      from: 'lab-map <onboarding@resend.dev>',
+      from: 'labonavi <noreply@labonavi.com>',
       to: process.env.NOTIFY_EMAIL!,
       subject: `【lab-map】${typeLabel}${lab_name ? ` - ${lab_name}` : ''}`,
       html,
