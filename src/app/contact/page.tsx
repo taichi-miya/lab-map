@@ -78,7 +78,7 @@ function ContactForm() {
     setError('')
     setSubmitting(true)
 
-    // Supabaseのreportsテーブルに保存（なければコンソールログのみ）
+    // Supabaseに保存
     try {
       await supabase.from('reports').insert({
         type: inquiryType,
@@ -89,9 +89,25 @@ function ContactForm() {
         email: email.trim() || null,
         created_at: new Date().toISOString(),
       })
-    } catch {
-      // reportsテーブルがなくてもOK（将来対応）
-      console.log('report saved (local only):', { inquiryType, selectedLabName, correctionField, body })
+    } catch (e) {
+      console.error('Supabase insert error:', e)
+    }
+
+    // Resendで通知メール送信
+    try {
+      await fetch('/api/notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: inquiryType,
+          lab_name: selectedLabName || null,
+          correction_field: correctionField || null,
+          body: body.trim(),
+          email: email.trim() || null,
+        }),
+      })
+    } catch (e) {
+      console.error('Notify error:', e)
     }
 
     setSubmitted(true)
