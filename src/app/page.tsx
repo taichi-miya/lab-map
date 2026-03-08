@@ -1,6 +1,8 @@
 'use client'
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
+import { usePins } from '@/hooks/usePins'
+import { SignInButton, SignUpButton, UserButton, useUser } from '@clerk/nextjs'
 import Link from 'next/link'
 
 type Lab = {
@@ -56,7 +58,6 @@ const CLUSTER_DESC = [
   '光通信・フォトニクス・無線通信・電子デバイスなど、情報通信を支えるハードウェア技術を研究する研究室群。',
   '核融合・プラズマ制御・原子炉安全から、核燃料・放射線工学まで、原子力エネルギーの全領域を研究する研究室群。',
 ]
-const PIN_KEY = 'labmap_pins'
 const FILTER_W = 228
 const FILTER_BTN_W = 52
 const LEGEND_W = 220
@@ -86,8 +87,6 @@ function clampOffset(ox: number, oy: number, zoom: number, svgW = 800, svgH = 60
   const minY = Math.min(0, svgH - TOTAL_H * zoom - PAD), maxY = Math.max(0, PAD)
   return { x: Math.min(maxX, Math.max(minX, ox)), y: Math.min(maxY, Math.max(minY, oy)) }
 }
-function loadPins(): string[] { try { return JSON.parse(localStorage.getItem(PIN_KEY) ?? '[]') } catch { return [] } }
-function savePins(ids: string[]) { try { localStorage.setItem(PIN_KEY, JSON.stringify(ids)) } catch {} }
 function calcFocusTransform(x: number, y: number, targetZoom = 2, svgW = 800, svgH = 600) {
   const clamped = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM_HARD, targetZoom))
   return { zoom: clamped, offset: clampOffset(svgW / 2 - x * clamped, svgH / 2 - y * clamped, clamped, svgW, svgH) }
@@ -118,6 +117,8 @@ const FILTER_TABS: { mode: FilterMode; label: string }[] = [
 ]
 
 export default function ExplorePage() {
+  const { isSignedIn } = useUser()
+  const { pins, togglePin, clearPins } = usePins()
   const [labs, setLabs] = useState<Lab[]>([])
   const [preview, setPreview] = useState<{ lab: Lab; pinned: boolean } | null>(null)
   const [query, setQuery] = useState('')
@@ -127,7 +128,6 @@ export default function ExplorePage() {
   const [zoom, setZoom] = useState(1)
   const [fitZoom, setFitZoom] = useState(MIN_ZOOM_HARD)
   const [offset, setOffset] = useState({ x: 0, y: 0 })
-  const [pins, setPins] = useState<string[]>([])
   const [showPinList, setShowPinList] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
 
@@ -194,7 +194,6 @@ export default function ExplorePage() {
   }, [menuOpen, showPinList])
 
   useEffect(() => {
-    setPins(loadPins())
     ;(async () => {
       const { data: labData } = await supabase.from('labs').select('id,name,faculty_name,map_x,map_y,cluster_id,dept,summary_text')
       const { data: tagData } = await supabase.from('lab_tags').select('lab_id,tag').limit(10000)
@@ -273,10 +272,10 @@ export default function ExplorePage() {
     setSuggestions(suggs); setShowSugg(suggs.length > 0); setSuggIndex(-1)
   }, [query, labs])
 
-  const togglePin = useCallback((id: string, e?: React.MouseEvent) => {
+  const handleTogglePin = useCallback((id: string, e?: React.MouseEvent) => {
     e?.stopPropagation(); e?.preventDefault()
-    setPins(prev => { const next = prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]; savePins(next); return next })
-  }, [])
+    togglePin(id)
+  }, [togglePin])
 
   // ── 再配置: 1つだけ選択されているスコープを返す ──
   const getSingleScope = useCallback((): { scope_type: string; scope_value: string; label: string } | null => {
@@ -546,7 +545,7 @@ export default function ExplorePage() {
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
             {pinned && <button onClick={() => setPreview(null)} title="カードを閉じる" style={{ width: 32, height: 32, borderRadius: 8, border: 'none', background: '#F3F4F6', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6B7280', transition: 'background 0.15s' }} onMouseEnter={e => (e.currentTarget.style.background = '#E5E7EB')} onMouseLeave={e => (e.currentTarget.style.background = '#F3F4F6')}>✕</button>}
-            <button onClick={(e) => togglePin(lab.id, e)} title={isPinned ? 'ピンを外す' : 'ピン留め'} style={{ width: 36, height: 36, borderRadius: 10, border: 'none', background: isPinned ? '#FEF9C3' : '#F3F4F6', cursor: 'pointer', fontSize: 17, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.15s,transform 0.1s' }} onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.12)')} onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}>{isPinned ? '⭐' : '☆'}</button>
+            <button onClick={(e) => handleTogglePin(lab.id, e)} title={isPinned ? 'ピンを外す' : 'ピン留め'} style={{ width: 36, height: 36, borderRadius: 10, border: 'none', background: isPinned ? '#FEF9C3' : '#F3F4F6', cursor: 'pointer', fontSize: 17, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.15s,transform 0.1s' }} onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.12)')} onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}>{isPinned ? '⭐' : '☆'}</button>
             <Link href={`/lab/${lab.id}`} className="detail-btn" style={{ display: 'inline-block', padding: '9px 18px', borderRadius: 10, background: color, color: 'white', fontSize: 13, fontWeight: 600, textDecoration: 'none', letterSpacing: '0.01em', whiteSpace: 'nowrap', transition: 'opacity 0.15s' }}>詳細を見る →</Link>
           </div>
         </div>
@@ -730,7 +729,7 @@ export default function ExplorePage() {
                 <div style={{ position: 'absolute', top: 'calc(100% + 8px)', right: 0, width: 300, zIndex: 70, background: 'white', borderRadius: 14, border: '1px solid var(--border)', boxShadow: '0 8px 28px rgba(17,24,39,0.12)', overflow: 'hidden', animation: 'fadeIn 0.12s ease' }}>
                   <div style={{ padding: '10px 14px 8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border)' }}>
                     <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)' }}>⭐ ピン留め（{pins.length}件）</span>
-                    {pins.length > 0 && <button onClick={() => { setPins([]); savePins([]) }} style={{ fontSize: 11, color: '#EF4444', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px', fontFamily: 'var(--font)' }}>全て外す</button>}
+                    {pins.length > 0 && <button onClick={clearPins} style={{ fontSize: 11, color: '#EF4444', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px', fontFamily: 'var(--font)' }}>全て外す</button>}
                   </div>
                   {pins.length === 0 ? <p style={{ fontSize: 12, color: 'var(--muted)', textAlign: 'center', padding: '20px 0', margin: 0 }}>研究室の ☆ を押してピン留めできます</p> : (
                     <ul style={{ listStyle: 'none', margin: 0, padding: '4px 0', maxHeight: 300, overflowY: 'auto' }}>
@@ -744,7 +743,7 @@ export default function ExplorePage() {
                                 <Link href={`/lab/${lab.id}`} style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', textDecoration: 'none', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} onClick={() => setShowPinList(false)}>{lab.name}</Link>
                                 <p style={{ fontSize: 11, color: 'var(--muted)', margin: 0 }}>{lab.faculty_name}</p>
                               </div>
-                              <button onClick={() => togglePin(lab.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, color: '#D97706', padding: '2px 4px', flexShrink: 0 }}>⭐</button>
+                              <button onClick={() => handleTogglePin(lab.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, color: '#D97706', padding: '2px 4px', flexShrink: 0 }}>⭐</button>
                             </div>
                           </li>
                         )
@@ -763,7 +762,31 @@ export default function ExplorePage() {
               {menuOpen && (
                 <div style={{ position: 'absolute', top: 'calc(100% + 8px)', right: 0, width: 210, zIndex: 70, background: 'white', borderRadius: 14, border: '1px solid var(--border)', boxShadow: '0 8px 28px rgba(17,24,39,0.12)', overflow: 'hidden', animation: 'slideInRight 0.12s ease' }}>
                   <div style={{ padding: '8px 0' }}>
+                    {/* 認証セクション */}
+                    <div style={{ padding: '6px 14px 8px', borderBottom: '1px solid var(--border)' }}>
+                      {isSignedIn ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <UserButton afterSignOutUrl="/" />
+                          <div style={{ fontSize: 12, color: '#6B7280' }}>アカウント設定</div>
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                          <p style={{ fontSize: 11, color: '#9CA3AF', margin: '0 0 4px' }}>ログインするとピン留めを保存できます</p>
+                          <div style={{ display: 'flex', gap: 6 }}>
+                            <SignInButton mode="modal">
+                              <button onClick={() => setMenuOpen(false)} style={{ flex: 1, padding: '7px 0', fontSize: 12, fontWeight: 600, borderRadius: 8, border: '1.5px solid #E5E7EB', background: 'white', color: '#374151', cursor: 'pointer', fontFamily: 'var(--font)' }}>ログイン</button>
+                            </SignInButton>
+                            <SignUpButton mode="modal">
+                              <button onClick={() => setMenuOpen(false)} style={{ flex: 1, padding: '7px 0', fontSize: 12, fontWeight: 700, borderRadius: 8, border: 'none', background: 'linear-gradient(135deg,#3B82F6,#6366F1)', color: 'white', cursor: 'pointer', fontFamily: 'var(--font)' }}>新規登録</button>
+                            </SignUpButton>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                     <div style={{ padding: '6px 14px 4px', fontSize: 10, fontWeight: 700, color: '#9CA3AF', letterSpacing: '0.06em' }}>メニュー</div>
+                    <Link href="/cards" onClick={() => setMenuOpen(false)} className="menu-item" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 14px', textDecoration: 'none', color: '#1F2937', transition: 'background 0.1s' }}>
+                      <span style={{ fontSize: 16, flexShrink: 0 }}>☰</span><div><div style={{ fontSize: 13, fontWeight: 600 }}>カード一覧</div><div style={{ fontSize: 11, color: '#9CA3AF' }}>リスト形式で閲覧</div></div>
+                    </Link>
                     <Link href="/contact?type=correction" onClick={() => setMenuOpen(false)} className="menu-item" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 14px', textDecoration: 'none', color: '#1F2937', transition: 'background 0.1s' }}>
                       <span style={{ fontSize: 16, flexShrink: 0 }}>📝</span><div><div style={{ fontSize: 13, fontWeight: 600 }}>情報修正依頼</div><div style={{ fontSize: 11, color: '#9CA3AF' }}>研究室情報の誤りを報告</div></div>
                     </Link>
