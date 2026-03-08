@@ -766,7 +766,7 @@ export default function ExplorePage() {
                     <div style={{ padding: '6px 14px 8px', borderBottom: '1px solid var(--border)' }}>
                       {isSignedIn ? (
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <UserButton afterSignOutUrl="/" />
+                          <UserButton />
                           <div style={{ fontSize: 12, color: '#6B7280' }}>アカウント設定</div>
                         </div>
                       ) : (
