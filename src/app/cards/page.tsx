@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { usePins } from '@/hooks/usePins'
 import { useUser, SignInButton, SignUpButton, UserButton } from '@clerk/nextjs'
+import Link from 'next/link'
 
 type Lab = {
   id: string
