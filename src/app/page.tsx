@@ -275,11 +275,30 @@ export default function ExplorePage() {
       return
     }
 
+    // スコープ内の座標を小さな領域にコンパクトに収める
+    // view_x/view_yはPythonで[240, 2960]×[240, 2160]に正規化済み
+    // それをそのままMAP_MARGIN+x*2で使うと広大なマップ全体に散らばる
+    // → スコープ内でさらに再正規化して中央付近の狭い領域にまとめる
+    const SCOPED_W = 1200  // スコープ表示用の幅（全体8000の15%）
+    const SCOPED_H = 900   // スコープ表示用の高さ
+    const CENTER_X = TOTAL_W / 2
+    const CENTER_Y = TOTAL_H / 2
+
+    const rawXs = data.map((d: { view_x: number }) => d.view_x)
+    const rawYs = data.map((d: { view_y: number }) => d.view_y)
+    const minX = Math.min(...rawXs), maxX = Math.max(...rawXs)
+    const minY = Math.min(...rawYs), maxY = Math.max(...rawYs)
+    const rangeX = maxX - minX || 1
+    const rangeY = maxY - minY || 1
+
     const coordMap: Record<string, AnimCoord> = {}
     for (const row of data) {
+      // スコープ内で再正規化 → 中央付近の小領域に配置
+      const nx = ((row.view_x - minX) / rangeX - 0.5) * SCOPED_W + CENTER_X
+      const ny = ((row.view_y - minY) / rangeY - 0.5) * SCOPED_H + CENTER_Y
       coordMap[row.lab_id] = {
-        x: MAP_MARGIN + row.view_x * 2,
-        y: MAP_MARGIN + row.view_y * 2,
+        x: nx,
+        y: ny,
         cluster_id: row.cluster_id ?? 0,
       }
     }
@@ -288,25 +307,29 @@ export default function ExplorePage() {
     setMapViewMode('scoped')
     setScopedLabel(singleScope.label)
 
-    const xs = data.map((d: { view_x: number }) => MAP_MARGIN + d.view_x * 2)
-    const ys = data.map((d: { view_y: number }) => MAP_MARGIN + d.view_y * 2)
+    // アニメーション完了（0.8s）後にフィット
+    const xs = Object.values(coordMap).map(c => c.x)
+    const ys = Object.values(coordMap).map(c => c.y)
     setTimeout(() => {
       doFit(svgW, svgH, xs, ys)
       setIsAnimating(false)
-    }, 150)
+    }, 900)  // アニメーション0.8s + 余裕100ms
   }, [singleScope, svgW, svgH, doFit])
 
   // ── 全体マップに戻す ──
   const resetMapView = useCallback(() => {
-    setAnimCoords({})
-    setMapViewMode('global')
+    setMapViewMode('global')  // まず楕円を戻す
     setScopedLabel('')
+    setAnimCoords({})          // 座標をクリア → ノードが元の位置へアニメーション
     fittedRef.current = false
-    doFit(
-      svgW, svgH,
-      labs.map(l => l.map_x != null ? MAP_MARGIN + l.map_x * 2 : MAP_MARGIN + 400),
-      labs.map(l => l.map_y != null ? MAP_MARGIN + l.map_y * 2 : MAP_MARGIN + 300)
-    )
+    // アニメーション後にフィット
+    setTimeout(() => {
+      doFit(
+        svgW, svgH,
+        labs.map(l => l.map_x != null ? MAP_MARGIN + l.map_x * 2 : MAP_MARGIN + 400),
+        labs.map(l => l.map_y != null ? MAP_MARGIN + l.map_y * 2 : MAP_MARGIN + 300)
+      )
+    }, 900)
   }, [svgW, svgH, labs, doFit])
 
   // ── placed: animCoordsがあればそちらの座標・cluster_idを使う ──
@@ -609,7 +632,7 @@ export default function ExplorePage() {
         .remap-btn:hover{opacity:.88!important;transform:translateY(-1px)}
         .remap-btn{transition:opacity .15s,transform .15s}
         .remap-btn:disabled{opacity:.5!important;cursor:not-allowed!important;transform:none}
-        .node-circle{transition:cx 0.65s cubic-bezier(0.4,0,0.2,1),cy 0.65s cubic-bezier(0.4,0,0.2,1)}
+        .node-circle{transition:cx 0.8s cubic-bezier(0.45,0,0.55,1),cy 0.8s cubic-bezier(0.45,0,0.55,1)}
       `}</style>
 
       <main style={{ position: 'fixed', inset: 0, overflow: 'hidden' }}>
@@ -750,6 +773,8 @@ export default function ExplorePage() {
                 })()}
                 {clusterEllipses.map((el, i) => {
                   if (!el) return null
+                  // scoped時は楕円非表示
+                  if (mapViewMode === 'scoped') return null
                   const labelW = CLUSTER_NAMES[i].length * 10.5 + 26
                   return (
                     <g key={i} data-ellipse="true" style={{ cursor: 'pointer' }} onClick={e => { e.stopPropagation(); setClusterPanel(clusterPanel === i ? null : i) }}>
@@ -770,7 +795,10 @@ export default function ExplorePage() {
                   const nodeScale = zoom < NODE_SHRINK_ZOOM ? Math.max(0.4, zoom / NODE_SHRINK_ZOOM) : 1
                   const r = (isActive || isFocused ? 13 : 10) * nodeScale
                   const hasAnim = !!animCoords[lab.id]
-                  const transStyle = hasAnim ? { transition: 'cx 0.65s cubic-bezier(0.4,0,0.2,1), cy 0.65s cubic-bezier(0.4,0,0.2,1)' } : {}
+                  const isScoped = mapViewMode === 'scoped'
+                  // scoped時: 対象外ノードは完全非表示
+                  if (isScoped && !hasAnim) return null
+                  const transStyle = hasAnim ? { transition: 'cx 0.8s cubic-bezier(0.45,0,0.55,1), cy 0.8s cubic-bezier(0.45,0,0.55,1)' } : {}
                   return (
                     <g key={lab.id} data-node="true" style={{ cursor: 'pointer' }}
                       onMouseEnter={() => { if (leaveTimer.current) clearTimeout(leaveTimer.current); enterTimer.current = setTimeout(() => setPreview({ lab, pinned: false }), 100) }}
@@ -900,7 +928,7 @@ export default function ExplorePage() {
             <button className="zoom-btn" onClick={() => applyZoom(zoom + ZOOM_STEP)} disabled={zoom >= MAX_ZOOM} style={{ width: 34, height: 34, borderRadius: 10, background: 'white', border: 'none', boxShadow: '0 2px 8px rgba(17,24,39,0.12)', fontSize: 20, color: '#374151', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontFamily: 'monospace' }}>+</button>
             <div style={{ width: 34, height: 22, borderRadius: 6, background: 'rgba(255,255,255,0.9)', boxShadow: '0 1px 4px rgba(17,24,39,0.08)', fontSize: 10, color: 'var(--muted)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{Math.round(zoom * 100)}%</div>
             <button className="zoom-btn" onClick={() => applyZoom(zoom - ZOOM_STEP)} disabled={zoom <= fitZoom} style={{ width: 34, height: 34, borderRadius: 10, background: 'white', border: 'none', boxShadow: '0 2px 8px rgba(17,24,39,0.12)', fontSize: 22, color: '#374151', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontFamily: 'monospace' }}>−</button>
-            <button className="zoom-btn" onClick={() => { setFocusedLabId(null); resetMapView() }} title="全体表示に戻す" style={{ width: 34, height: 34, borderRadius: 10, background: 'white', border: 'none', boxShadow: '0 2px 8px rgba(17,24,39,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+            <button className="zoom-btn" onClick={() => { setFocusedLabId(null); if (mapViewMode === 'scoped') { resetMapView() } else { fittedRef.current = false; doFit(svgW, svgH, labs.map(l => l.map_x != null ? MAP_MARGIN + l.map_x * 2 : MAP_MARGIN + 400), labs.map(l => l.map_y != null ? MAP_MARGIN + l.map_y * 2 : MAP_MARGIN + 300)) } }} title="全体表示に戻す" style={{ width: 34, height: 34, borderRadius: 10, background: 'white', border: 'none', boxShadow: '0 2px 8px rgba(17,24,39,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
               <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="#374151" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H5a1 1 0 01-1-1V9.5z"/><path d="M9 21V12h6v9"/></svg>
             </button>
           </div>
