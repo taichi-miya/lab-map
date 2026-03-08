@@ -30,6 +30,13 @@ type LabCourse = {
 }
 
 type FilterMode = 'course' | 'dept' | 'tag' | null
+type MapViewMode = 'global' | 'scoped'
+
+type AnimCoord = {
+  x: number
+  y: number
+  cluster_id: number
+}
 
 const C        = ['#3B82F6','#22C55E','#F59E0B','#EF4444','#8B5CF6','#EC4899','#14B8A6','#F97316','#0EA5E9','#A855F7'] as const
 const C_FILL   = ['rgba(59,130,246,0.10)','rgba(34,197,94,0.10)','rgba(245,158,11,0.10)','rgba(239,68,68,0.10)','rgba(139,92,246,0.10)','rgba(236,72,153,0.10)','rgba(20,184,166,0.10)','rgba(249,115,22,0.10)','rgba(14,165,233,0.10)','rgba(168,85,247,0.10)']
@@ -141,6 +148,12 @@ export default function ExplorePage() {
   const [focusedLabId, setFocusedLabId] = useState<string | null>(null)
   const [clusterPanel, setClusterPanel] = useState<number | null>(null)
 
+  // ── 再配置関連 ──
+  const [mapViewMode, setMapViewMode] = useState<MapViewMode>('global')
+  const [animCoords, setAnimCoords] = useState<Record<string, AnimCoord>>({})
+  const [isAnimating, setIsAnimating] = useState(false)
+  const [scopedLabel, setScopedLabel] = useState('')
+
   const isDragging = useRef(false)
   const dragStart = useRef({ x: 0, y: 0 })
   const offsetAtDrag = useRef({ x: 0, y: 0 })
@@ -173,12 +186,8 @@ export default function ExplorePage() {
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (menuOpen && menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false)
-      }
-      if (showPinList && pinListRef.current && !pinListRef.current.contains(e.target as Node)) {
-        setShowPinList(false)
-      }
+      if (menuOpen && menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false)
+      if (showPinList && pinListRef.current && !pinListRef.current.contains(e.target as Node)) setShowPinList(false)
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
@@ -233,11 +242,91 @@ export default function ExplorePage() {
     setPins(prev => { const next = prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]; savePins(next); return next })
   }, [])
 
-  const placed = labs.map((lab, i) => ({
-    ...lab,
-    x: lab.map_x != null ? Math.min(NODE_MAX_X, Math.max(NODE_MIN_X, MAP_MARGIN + lab.map_x * 2)) : MAP_MARGIN + 100 + (i % 5) * 130,
-    y: lab.map_y != null ? Math.min(NODE_MAX_Y, Math.max(NODE_MIN_Y, MAP_MARGIN + lab.map_y * 2)) : MAP_MARGIN + 100 + Math.floor(i / 5) * 120,
-  }))
+  // ── 再配置: 1つだけ選択されているスコープを返す ──
+  const getSingleScope = useCallback((): { scope_type: string; scope_value: string; label: string } | null => {
+    if (selectedCourses.size === 1 && selectedDepts.size === 0 && selectedTags.size === 0) {
+      const key = [...selectedCourses][0]
+      const parts = key.split('::')
+      const course = parts[1] || parts[0]
+      return { scope_type: 'course', scope_value: key, label: course }
+    }
+    if (selectedDepts.size === 1 && selectedCourses.size === 0 && selectedTags.size === 0) {
+      const dept = [...selectedDepts][0]
+      return { scope_type: 'grad_dept', scope_value: dept, label: dept }
+    }
+    return null
+  }, [selectedCourses, selectedDepts, selectedTags])
+
+  const singleScope = getSingleScope()
+
+  // ── 再配置実行 ──
+  const applyMapView = useCallback(async () => {
+    if (!singleScope) return
+    setIsAnimating(true)
+
+    const { data } = await supabase
+      .from('map_views')
+      .select('lab_id, view_x, view_y, cluster_id')
+      .eq('scope_type', singleScope.scope_type)
+      .eq('scope_value', singleScope.scope_value)
+
+    if (!data || data.length === 0) {
+      setIsAnimating(false)
+      return
+    }
+
+    const coordMap: Record<string, AnimCoord> = {}
+    for (const row of data) {
+      coordMap[row.lab_id] = {
+        x: MAP_MARGIN + row.view_x * 2,
+        y: MAP_MARGIN + row.view_y * 2,
+        cluster_id: row.cluster_id ?? 0,
+      }
+    }
+
+    setAnimCoords(coordMap)
+    setMapViewMode('scoped')
+    setScopedLabel(singleScope.label)
+
+    const xs = data.map((d: { view_x: number }) => MAP_MARGIN + d.view_x * 2)
+    const ys = data.map((d: { view_y: number }) => MAP_MARGIN + d.view_y * 2)
+    setTimeout(() => {
+      doFit(svgW, svgH, xs, ys)
+      setIsAnimating(false)
+    }, 150)
+  }, [singleScope, svgW, svgH, doFit])
+
+  // ── 全体マップに戻す ──
+  const resetMapView = useCallback(() => {
+    setAnimCoords({})
+    setMapViewMode('global')
+    setScopedLabel('')
+    fittedRef.current = false
+    doFit(
+      svgW, svgH,
+      labs.map(l => l.map_x != null ? MAP_MARGIN + l.map_x * 2 : MAP_MARGIN + 400),
+      labs.map(l => l.map_y != null ? MAP_MARGIN + l.map_y * 2 : MAP_MARGIN + 300)
+    )
+  }, [svgW, svgH, labs, doFit])
+
+  // ── placed: animCoordsがあればそちらの座標・cluster_idを使う ──
+  const placed = labs.map((lab, i) => {
+    const anim = animCoords[lab.id]
+    return {
+      ...lab,
+      cluster_id: anim ? anim.cluster_id : lab.cluster_id,
+      x: anim
+        ? anim.x
+        : lab.map_x != null
+          ? Math.min(NODE_MAX_X, Math.max(NODE_MIN_X, MAP_MARGIN + lab.map_x * 2))
+          : MAP_MARGIN + 100 + (i % 5) * 130,
+      y: anim
+        ? anim.y
+        : lab.map_y != null
+          ? Math.min(NODE_MAX_Y, Math.max(NODE_MIN_Y, MAP_MARGIN + lab.map_y * 2))
+          : MAP_MARGIN + 100 + Math.floor(i / 5) * 120,
+    }
+  })
   const pinnedLabs = placed.filter(l => pins.includes(l.id))
 
   const visibleLabelIds = useMemo(() => {
@@ -245,27 +334,14 @@ export default function ExplorePage() {
     const labelW = (name: string) => Math.min(name.length, 14) * 7.5
     const labelH = 14
     const pad = 6
-    const sorted = [...placed].sort((a, b) => {
-      const ap = pins.includes(a.id) ? 0 : 1
-      const bp = pins.includes(b.id) ? 0 : 1
-      return ap - bp
-    })
+    const sorted = [...placed].sort((a, b) => { const ap = pins.includes(a.id) ? 0 : 1; const bp = pins.includes(b.id) ? 0 : 1; return ap - bp })
     const shown = new Set<string>()
     const boxes: { x1: number; y1: number; x2: number; y2: number }[] = []
     for (const lab of sorted) {
-      const lw = labelW(lab.name) / zoom
-      const lh = labelH / zoom
-      const lx = lab.x - lw / 2
-      const ly = lab.y + (13 / zoom)
-      const p = pad / zoom
-      const overlaps = boxes.some(b =>
-        lx - p < b.x2 && lx + lw + p > b.x1 &&
-        ly - p < b.y2 && ly + lh + p > b.y1
-      )
-      if (!overlaps) {
-        shown.add(lab.id)
-        boxes.push({ x1: lx, y1: ly, x2: lx + lw, y2: ly + lh })
-      }
+      const lw = labelW(lab.name) / zoom, lh = labelH / zoom
+      const lx = lab.x - lw / 2, ly = lab.y + (13 / zoom), p = pad / zoom
+      const overlaps = boxes.some(b => lx - p < b.x2 && lx + lw + p > b.x1 && ly - p < b.y2 && ly + lh + p > b.y1)
+      if (!overlaps) { shown.add(lab.id); boxes.push({ x1: lx, y1: ly, x2: lx + lw, y2: ly + lh }) }
     }
     return shown
   }, [placed, zoom, pins])
@@ -316,25 +392,15 @@ export default function ExplorePage() {
 
   const switchMode = (mode: FilterMode) => {
     if (mode === filterMode) return
-    if ((mode === 'course' && hasDeptFilter) || (mode === 'dept' && hasCourseFilter)) {
-      setSelectedCourses(new Set()); setSelectedDepts(new Set())
-    }
+    if ((mode === 'course' && hasDeptFilter) || (mode === 'dept' && hasCourseFilter)) { setSelectedCourses(new Set()); setSelectedDepts(new Set()) }
     setFilterMode(mode)
   }
 
   const matchLab = useCallback((lab: Lab) => {
     if (activeCluster !== null && lab.cluster_id !== activeCluster) return false
-    if (hasCourseFilter) {
-      const ok = labCourses.some(c => c.lab_id === lab.id && selectedCourses.has(`${c.undergraduate_dept}::${c.course}`))
-      if (!ok) return false
-    }
-    if (hasDeptFilter) {
-      if (!lab.dept || !selectedDepts.has(lab.dept)) return false
-    }
-    if (hasTagFilter) {
-      const ok = lab.tags.some(t => selectedTags.has(t))
-      if (!ok) return false
-    }
+    if (hasCourseFilter) { const ok = labCourses.some(c => c.lab_id === lab.id && selectedCourses.has(`${c.undergraduate_dept}::${c.course}`)); if (!ok) return false }
+    if (hasDeptFilter) { if (!lab.dept || !selectedDepts.has(lab.dept)) return false }
+    if (hasTagFilter) { const ok = lab.tags.some(t => selectedTags.has(t)); if (!ok) return false }
     if (!query) return true
     const q = query.toLowerCase()
     return lab.name.toLowerCase().includes(q) || (lab.faculty_name ?? '').toLowerCase().includes(q) || lab.tags.some(t => t.toLowerCase().includes(q))
@@ -343,10 +409,7 @@ export default function ExplorePage() {
   const getLabCourseInfo = (labId: string) => {
     const entries = labCourses.filter(c => c.lab_id === labId)
     if (entries.length === 0) return null
-    return {
-      depts: [...new Set(entries.map(c => c.undergraduate_dept))],
-      courses: [...new Set(entries.map(c => c.course))],
-    }
+    return { depts: [...new Set(entries.map(c => c.undergraduate_dept))], courses: [...new Set(entries.map(c => c.course))] }
   }
 
   const clusterEllipses = CLUSTER_NAMES.map((_, ci) => {
@@ -379,19 +442,11 @@ export default function ExplorePage() {
 
   const handleWheel = useCallback((e: React.WheelEvent<SVGSVGElement>) => {
     e.preventDefault()
-    const WHEEL_STEP = 0.06
-    const rect = svgRef.current?.getBoundingClientRect()
-    if (!rect) return
-    const mx = e.clientX - rect.left
-    const my = e.clientY - rect.top
-    const delta = e.deltaY > 0 ? -WHEEL_STEP : WHEEL_STEP
-    const newZoom = Math.min(MAX_ZOOM, Math.max(fitZoom, zoom + delta))
+    const rect = svgRef.current?.getBoundingClientRect(); if (!rect) return
+    const mx = e.clientX - rect.left, my = e.clientY - rect.top
+    const newZoom = Math.min(MAX_ZOOM, Math.max(fitZoom, zoom + (e.deltaY > 0 ? -0.06 : 0.06)))
     setZoom(newZoom)
-    setOffset(clampOffset(
-      mx - (mx - offset.x) * (newZoom / zoom),
-      my - (my - offset.y) * (newZoom / zoom),
-      newZoom, svgW, svgH
-    ))
+    setOffset(clampOffset(mx - (mx - offset.x) * (newZoom / zoom), my - (my - offset.y) * (newZoom / zoom), newZoom, svgW, svgH))
   }, [zoom, fitZoom, offset, svgW, svgH])
 
   const transform = `translate(${offset.x},${offset.y}) scale(${zoom})`
@@ -417,22 +472,11 @@ export default function ExplorePage() {
     const isPinned = pins.includes(lab.id)
     const courseInfo = getLabCourseInfo(lab.id)
     const facultyNames = lab.faculty_name ? lab.faculty_name.split(/[、,，]/).map(s => s.trim()).filter(Boolean) : []
-
     return (
       <div style={{ animation: 'slideUpOuter 0.15s ease forwards' }}
         onMouseEnter={() => { cardHovered.current = true; if (leaveTimer.current) clearTimeout(leaveTimer.current) }}
-        onMouseLeave={() => {
-          cardHovered.current = false
-          if (!preview?.pinned) {
-            leaveTimer.current = setTimeout(() => setPreview(null), 2000)
-          }
-        }}
-      >
-        <div style={{
-          background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)',
-          borderRadius: 16, border: `1.5px solid ${pinned ? color : strokeColor}`, boxShadow: `0 4px 24px rgba(17,24,39,${pinned ? '0.18' : '0.14'})`,
-          padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap',
-        }}>
+        onMouseLeave={() => { cardHovered.current = false; if (!preview?.pinned) { leaveTimer.current = setTimeout(() => setPreview(null), 2000) } }}>
+        <div style={{ background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', borderRadius: 16, border: `1.5px solid ${pinned ? color : strokeColor}`, boxShadow: `0 4px 24px rgba(17,24,39,${pinned ? '0.18' : '0.14'})`, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10, fontWeight: 600, color: chipColor, background: chipBg, padding: '2px 9px 2px 6px', borderRadius: 999 }}>
@@ -441,47 +485,15 @@ export default function ExplorePage() {
             </div>
             <p style={{ fontSize: 15, fontWeight: 700, margin: '0 0 4px', color: 'var(--text)', lineHeight: 1.3 }}>{lab.name}</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginBottom: 7 }}>
-              {facultyNames.length > 0 && (
-                <p style={{ fontSize: 11, color: 'var(--muted)', margin: 0, lineHeight: 1.4 }}>
-                  <span style={{ color: '#9CA3AF', fontWeight: 600, marginRight: 4 }}>教員</span>
-                  {facultyNames.join('、')}
-                </p>
-              )}
-              {courseInfo && (
-                <p style={{ fontSize: 11, color: 'var(--muted)', margin: 0, lineHeight: 1.4 }}>
-                  <span style={{ color: '#9CA3AF', fontWeight: 600, marginRight: 4 }}>学科/コース</span>
-                  {courseInfo.depts.map((d, i) => (
-                    <span key={i}>{d}
-                      {courseInfo.courses.length > 0 && <span style={{ color: '#A5B4FC' }}> {courseInfo.courses.slice(0, 2).join(' / ')}</span>}
-                      {i < courseInfo.depts.length - 1 && '、'}
-                    </span>
-                  ))}
-                </p>
-              )}
-              {lab.dept && (
-                <p style={{ fontSize: 11, color: 'var(--muted)', margin: 0, lineHeight: 1.4 }}>
-                  <span style={{ color: '#9CA3AF', fontWeight: 600, marginRight: 4 }}>大学院</span>
-                  {lab.dept}
-                </p>
-              )}
+              {facultyNames.length > 0 && <p style={{ fontSize: 11, color: 'var(--muted)', margin: 0, lineHeight: 1.4 }}><span style={{ color: '#9CA3AF', fontWeight: 600, marginRight: 4 }}>教員</span>{facultyNames.join('、')}</p>}
+              {courseInfo && <p style={{ fontSize: 11, color: 'var(--muted)', margin: 0, lineHeight: 1.4 }}><span style={{ color: '#9CA3AF', fontWeight: 600, marginRight: 4 }}>学科/コース</span>{courseInfo.depts.map((d, i) => <span key={i}>{d}{courseInfo.courses.length > 0 && <span style={{ color: '#A5B4FC' }}> {courseInfo.courses.slice(0, 2).join(' / ')}</span>}{i < courseInfo.depts.length - 1 && '、'}</span>)}</p>}
+              {lab.dept && <p style={{ fontSize: 11, color: 'var(--muted)', margin: 0, lineHeight: 1.4 }}><span style={{ color: '#9CA3AF', fontWeight: 600, marginRight: 4 }}>大学院</span>{lab.dept}</p>}
             </div>
-            {lab.tags.length > 0 && (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                {lab.tags.slice(0, 5).map((t, i) => (
-                  <span key={i} style={{ fontSize: 11, padding: '2px 8px', borderRadius: 999, background: chipBg, color: chipColor, fontWeight: 500 }}>{t}</span>
-                ))}
-              </div>
-            )}
+            {lab.tags.length > 0 && <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>{lab.tags.slice(0, 5).map((t, i) => <span key={i} style={{ fontSize: 11, padding: '2px 8px', borderRadius: 999, background: chipBg, color: chipColor, fontWeight: 500 }}>{t}</span>)}</div>}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-            {pinned && (
-              <button onClick={() => setPreview(null)} title="カードを閉じる"
-                style={{ width: 32, height: 32, borderRadius: 8, border: 'none', background: '#F3F4F6', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6B7280', transition: 'background 0.15s' }}
-                onMouseEnter={e => (e.currentTarget.style.background = '#E5E7EB')}
-                onMouseLeave={e => (e.currentTarget.style.background = '#F3F4F6')}>✕</button>
-            )}
-            <button onClick={(e) => togglePin(lab.id, e)} title={isPinned ? 'ピンを外す' : 'ピン留め'} style={{ width: 36, height: 36, borderRadius: 10, border: 'none', background: isPinned ? '#FEF9C3' : '#F3F4F6', cursor: 'pointer', fontSize: 17, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.15s,transform 0.1s' }}
-              onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.12)')} onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}>{isPinned ? '⭐' : '☆'}</button>
+            {pinned && <button onClick={() => setPreview(null)} title="カードを閉じる" style={{ width: 32, height: 32, borderRadius: 8, border: 'none', background: '#F3F4F6', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6B7280', transition: 'background 0.15s' }} onMouseEnter={e => (e.currentTarget.style.background = '#E5E7EB')} onMouseLeave={e => (e.currentTarget.style.background = '#F3F4F6')}>✕</button>}
+            <button onClick={(e) => togglePin(lab.id, e)} title={isPinned ? 'ピンを外す' : 'ピン留め'} style={{ width: 36, height: 36, borderRadius: 10, border: 'none', background: isPinned ? '#FEF9C3' : '#F3F4F6', cursor: 'pointer', fontSize: 17, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.15s,transform 0.1s' }} onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.12)')} onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}>{isPinned ? '⭐' : '☆'}</button>
             <Link href={`/lab/${lab.id}`} className="detail-btn" style={{ display: 'inline-block', padding: '9px 18px', borderRadius: 10, background: color, color: 'white', fontSize: 13, fontWeight: 600, textDecoration: 'none', letterSpacing: '0.01em', whiteSpace: 'nowrap', transition: 'opacity 0.15s' }}>詳細を見る →</Link>
           </div>
         </div>
@@ -495,14 +507,9 @@ export default function ExplorePage() {
     if (filterMode === 'course') {
       return (
         <>
-          {hasDeptFilter && (
-            <div style={{ padding: '6px 10px', background: 'rgba(239,68,68,0.06)', margin: '0 8px 6px', borderRadius: 8, fontSize: 11, color: '#EF4444' }}>
-              ⚠ 専攻フィルター選択中。切り替えるとリセットされます。
-            </div>
-          )}
+          {hasDeptFilter && <div style={{ padding: '6px 10px', background: 'rgba(239,68,68,0.06)', margin: '0 8px 6px', borderRadius: 8, fontSize: 11, color: '#EF4444' }}>⚠ 専攻フィルター選択中。切り替えるとリセットされます。</div>}
           {deptList.map(dept => {
-            const courses = deptCourseMap.get(dept) ?? []
-            const isExpanded = expandedDepts.has(dept)
+            const courses = deptCourseMap.get(dept) ?? [], isExpanded = expandedDepts.has(dept)
             const selCount = courses.filter(c => selectedCourses.has(`${dept}::${c}`)).length
             const allSel = selCount === courses.length && courses.length > 0
             return (
@@ -538,11 +545,7 @@ export default function ExplorePage() {
     if (filterMode === 'dept') {
       return (
         <>
-          {hasCourseFilter && (
-            <div style={{ padding: '6px 10px', background: 'rgba(239,68,68,0.06)', margin: '0 8px 6px', borderRadius: 8, fontSize: 11, color: '#EF4444' }}>
-              ⚠ 学科/コースフィルター選択中。切り替えるとリセットされます。
-            </div>
-          )}
+          {hasCourseFilter && <div style={{ padding: '6px 10px', background: 'rgba(239,68,68,0.06)', margin: '0 8px 6px', borderRadius: 8, fontSize: 11, color: '#EF4444' }}>⚠ 学科/コースフィルター選択中。切り替えるとリセットされます。</div>}
           {deptNameList.map(dept => {
             const checked = selectedDepts.has(dept)
             return (
@@ -559,12 +562,10 @@ export default function ExplorePage() {
       return (
         <>
           <div style={{ padding: '8px 10px', borderBottom: '1px solid rgba(229,231,235,0.5)', flexShrink: 0 }}>
-            <input type="text" placeholder="タグを検索..." value={tagSearch} onChange={e => setTagSearch(e.target.value)}
-              style={{ width: '100%', padding: '6px 10px', fontSize: 12, borderRadius: 8, border: '1.5px solid var(--border)', background: 'white', color: 'var(--text)', fontFamily: 'var(--font)', outline: 'none', boxSizing: 'border-box' }} />
+            <input type="text" placeholder="タグを検索..." value={tagSearch} onChange={e => setTagSearch(e.target.value)} style={{ width: '100%', padding: '6px 10px', fontSize: 12, borderRadius: 8, border: '1.5px solid var(--border)', background: 'white', color: 'var(--text)', fontFamily: 'var(--font)', outline: 'none', boxSizing: 'border-box' }} />
           </div>
           {filteredTags.map(tag => {
-            const checked = selectedTags.has(tag)
-            const count = labs.filter(l => l.tags.includes(tag)).length
+            const checked = selectedTags.has(tag), count = labs.filter(l => l.tags.includes(tag)).length
             return (
               <label key={tag} className="course-row" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', cursor: 'pointer', background: checked ? 'rgba(59,130,246,0.06)' : 'transparent', borderBottom: '1px solid rgba(229,231,235,0.2)' }}>
                 <input type="checkbox" checked={checked} onChange={() => toggleTag(tag)} style={{ accentColor: '#3B82F6', width: 13, height: 13, flexShrink: 0 }} />
@@ -589,6 +590,7 @@ export default function ExplorePage() {
         @keyframes fadeInDown{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
         @keyframes fadeIn{from{opacity:0}to{opacity:1}}
         @keyframes slideInRight{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:translateX(0)}}
+        @keyframes pulseBlue{0%,100%{box-shadow:0 0 0 0 rgba(59,130,246,0.4)}50%{box-shadow:0 0 0 6px rgba(59,130,246,0)}}
         .zoom-btn{transition:background .1s,transform .1s}
         .zoom-btn:hover:not(:disabled){background:#F3F4F6!important;transform:scale(1.06)}
         .zoom-btn:disabled{opacity:.3!important;cursor:not-allowed!important}
@@ -604,15 +606,22 @@ export default function ExplorePage() {
         .filter-tab{transition:background .15s,color .15s;cursor:pointer;border:none;font-family:var(--font);}
         .menu-item:hover{background:rgba(59,130,246,0.06)!important}
         .hamburger-btn:hover{background:#F3F4F6!important}
+        .remap-btn:hover{opacity:.88!important;transform:translateY(-1px)}
+        .remap-btn{transition:opacity .15s,transform .15s}
+        .remap-btn:disabled{opacity:.5!important;cursor:not-allowed!important;transform:none}
+        .node-circle{transition:cx 0.65s cubic-bezier(0.4,0,0.2,1),cy 0.65s cubic-bezier(0.4,0,0.2,1)}
       `}</style>
 
       <main style={{ position: 'fixed', inset: 0, overflow: 'hidden' }}>
-
         {/* ── ヘッダー ── */}
         <header style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 30, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', padding: '10px 16px 8px', background: 'rgba(250,250,247,0.88)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', borderBottom: '1px solid rgba(229,231,235,0.6)' }}>
           <div>
             <h1 style={{ fontSize: 21, fontWeight: 700, letterSpacing: '-0.025em', color: 'var(--text)', margin: 0, lineHeight: 1.25 }}>東北大学 研究室マップ</h1>
-            <p style={{ fontSize: 12, color: 'var(--muted)', margin: '5px 0 0', lineHeight: 1.6 }}>研究概要の類似度で研究室を配置。近いほど研究内容が似ています。</p>
+            <p style={{ fontSize: 12, color: 'var(--muted)', margin: '5px 0 0', lineHeight: 1.6 }}>
+              {mapViewMode === 'scoped'
+                ? <><span style={{ color: '#3B82F6', fontWeight: 700 }}>✦ {scopedLabel}</span> の研究室を絞り込んで再配置中</>
+                : '研究概要の類似度で研究室を配置。近いほど研究内容が似ています。'}
+            </p>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
             {/* 検索バー */}
@@ -695,40 +704,21 @@ export default function ExplorePage() {
 
             {/* ハンバーガーメニュー */}
             <div ref={menuRef} style={{ position: 'relative' }}>
-              <button className="hamburger-btn" onClick={() => { setMenuOpen(v => !v); setShowPinList(false) }}
-                style={{ width: 38, height: 38, borderRadius: 10, border: 'none', background: menuOpen ? '#F3F4F6' : 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6B7280', transition: 'background 0.15s', fontFamily: 'var(--font)' }}>
+              <button className="hamburger-btn" onClick={() => { setMenuOpen(v => !v); setShowPinList(false) }} style={{ width: 38, height: 38, borderRadius: 10, border: 'none', background: menuOpen ? '#F3F4F6' : 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6B7280', transition: 'background 0.15s', fontFamily: 'var(--font)' }}>
                 <HamburgerIcon />
               </button>
               {menuOpen && (
                 <div style={{ position: 'absolute', top: 'calc(100% + 8px)', right: 0, width: 210, zIndex: 70, background: 'white', borderRadius: 14, border: '1px solid var(--border)', boxShadow: '0 8px 28px rgba(17,24,39,0.12)', overflow: 'hidden', animation: 'slideInRight 0.12s ease' }}>
                   <div style={{ padding: '8px 0' }}>
                     <div style={{ padding: '6px 14px 4px', fontSize: 10, fontWeight: 700, color: '#9CA3AF', letterSpacing: '0.06em' }}>メニュー</div>
-                    <Link href="/contact?type=correction" onClick={() => setMenuOpen(false)}
-                      className="menu-item"
-                      style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 14px', textDecoration: 'none', color: '#1F2937', transition: 'background 0.1s' }}>
-                      <span style={{ fontSize: 16, flexShrink: 0 }}>📝</span>
-                      <div>
-                        <div style={{ fontSize: 13, fontWeight: 600 }}>情報修正依頼</div>
-                        <div style={{ fontSize: 11, color: '#9CA3AF' }}>研究室情報の誤りを報告</div>
-                      </div>
+                    <Link href="/contact?type=correction" onClick={() => setMenuOpen(false)} className="menu-item" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 14px', textDecoration: 'none', color: '#1F2937', transition: 'background 0.1s' }}>
+                      <span style={{ fontSize: 16, flexShrink: 0 }}>📝</span><div><div style={{ fontSize: 13, fontWeight: 600 }}>情報修正依頼</div><div style={{ fontSize: 11, color: '#9CA3AF' }}>研究室情報の誤りを報告</div></div>
                     </Link>
-                    <Link href="/contact?type=feature" onClick={() => setMenuOpen(false)}
-                      className="menu-item"
-                      style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 14px', textDecoration: 'none', color: '#1F2937', transition: 'background 0.1s' }}>
-                      <span style={{ fontSize: 16, flexShrink: 0 }}>💡</span>
-                      <div>
-                        <div style={{ fontSize: 13, fontWeight: 600 }}>新機能を要望する</div>
-                        <div style={{ fontSize: 11, color: '#9CA3AF' }}>アイデアを送る</div>
-                      </div>
+                    <Link href="/contact?type=feature" onClick={() => setMenuOpen(false)} className="menu-item" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 14px', textDecoration: 'none', color: '#1F2937', transition: 'background 0.1s' }}>
+                      <span style={{ fontSize: 16, flexShrink: 0 }}>💡</span><div><div style={{ fontSize: 13, fontWeight: 600 }}>新機能を要望する</div><div style={{ fontSize: 11, color: '#9CA3AF' }}>アイデアを送る</div></div>
                     </Link>
-                    <Link href="/contact" onClick={() => setMenuOpen(false)}
-                      className="menu-item"
-                      style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 14px', textDecoration: 'none', color: '#1F2937', transition: 'background 0.1s' }}>
-                      <span style={{ fontSize: 16, flexShrink: 0 }}>💬</span>
-                      <div>
-                        <div style={{ fontSize: 13, fontWeight: 600 }}>お問い合わせ</div>
-                        <div style={{ fontSize: 11, color: '#9CA3AF' }}>不具合報告・ご意見など</div>
-                      </div>
+                    <Link href="/contact" onClick={() => setMenuOpen(false)} className="menu-item" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 14px', textDecoration: 'none', color: '#1F2937', transition: 'background 0.1s' }}>
+                      <span style={{ fontSize: 16, flexShrink: 0 }}>💬</span><div><div style={{ fontSize: 13, fontWeight: 600 }}>お問い合わせ</div><div style={{ fontSize: 11, color: '#9CA3AF' }}>不具合報告・ご意見など</div></div>
                     </Link>
                   </div>
                 </div>
@@ -737,23 +727,12 @@ export default function ExplorePage() {
           </div>
         </header>
 
-
-
         {/* ── マップ ── */}
         <div ref={mapDivRef} style={{ position: 'absolute', inset: 0, background: 'var(--card)', overflow: 'hidden', userSelect: 'none' }}>
           <svg ref={svgRef} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', display: 'block', cursor: isDragging.current ? 'grabbing' : 'grab' }}
             onMouseDown={handleMouseDown} onMouseMove={handleMouseMove}
-            onMouseUp={e => {
-              handleMouseUp()
-              if (!dragMoved.current) {
-                const target = e.target as Element
-                if (!target.closest('g[data-node]') && !target.closest('g[data-ellipse]')) {
-                  setClusterPanel(null)
-                }
-              }
-            }}
-            onMouseLeave={handleMouseUp}
-            onWheel={handleWheel}>
+            onMouseUp={e => { handleMouseUp(); if (!dragMoved.current) { const target = e.target as Element; if (!target.closest('g[data-node]') && !target.closest('g[data-ellipse]')) setClusterPanel(null) } }}
+            onMouseLeave={handleMouseUp} onWheel={handleWheel}>
             <defs>
               <clipPath id="map-clip"><rect x={0} y={0} width={svgW} height={svgH} /></clipPath>
               <filter id="ns" x="-60%" y="-60%" width="220%" height="220%"><feDropShadow dx="0" dy="1" stdDeviation="2.5" floodColor="rgba(17,24,39,0.16)" /></filter>
@@ -764,14 +743,9 @@ export default function ExplorePage() {
               <g transform={transform}>
                 <rect x={0} y={0} width={TOTAL_W} height={TOTAL_H} fill="rgba(248,250,252,0.7)" />
                 {(() => {
-                  const lines = []
-                  const lw = 1 / zoom
-                  for (let x = 0; x <= TOTAL_W; x += GRID_SIZE) {
-                    lines.push(<line key={`vl${x}`} x1={x} y1={0} x2={x} y2={TOTAL_H} stroke="rgba(180,190,200,0.30)" strokeWidth={lw} />)
-                  }
-                  for (let y = 0; y <= TOTAL_H; y += GRID_SIZE) {
-                    lines.push(<line key={`hl${y}`} x1={0} y1={y} x2={TOTAL_W} y2={y} stroke="rgba(180,190,200,0.30)" strokeWidth={lw} />)
-                  }
+                  const lines = [], lw = 1 / zoom
+                  for (let x = 0; x <= TOTAL_W; x += GRID_SIZE) lines.push(<line key={`vl${x}`} x1={x} y1={0} x2={x} y2={TOTAL_H} stroke="rgba(180,190,200,0.30)" strokeWidth={lw} />)
+                  for (let y = 0; y <= TOTAL_H; y += GRID_SIZE) lines.push(<line key={`hl${y}`} x1={0} y1={y} x2={TOTAL_W} y2={y} stroke="rgba(180,190,200,0.30)" strokeWidth={lw} />)
                   return lines
                 })()}
                 {clusterEllipses.map((el, i) => {
@@ -795,37 +769,20 @@ export default function ExplorePage() {
                   const showLabel = zoom >= LABEL_SHOW_ZOOM && visibleLabelIds.has(lab.id)
                   const nodeScale = zoom < NODE_SHRINK_ZOOM ? Math.max(0.4, zoom / NODE_SHRINK_ZOOM) : 1
                   const r = (isActive || isFocused ? 13 : 10) * nodeScale
+                  const hasAnim = !!animCoords[lab.id]
+                  const transStyle = hasAnim ? { transition: 'cx 0.65s cubic-bezier(0.4,0,0.2,1), cy 0.65s cubic-bezier(0.4,0,0.2,1)' } : {}
                   return (
                     <g key={lab.id} data-node="true" style={{ cursor: 'pointer' }}
-                      onMouseEnter={() => {
-                        if (leaveTimer.current) clearTimeout(leaveTimer.current)
-                        enterTimer.current = setTimeout(() => setPreview({ lab, pinned: false }), 100)
-                      }}
-                      onMouseLeave={() => {
-                        if (enterTimer.current) clearTimeout(enterTimer.current)
-                        if (!preview?.pinned) {
-                          leaveTimer.current = setTimeout(() => { if (!cardHovered.current) setPreview(null) }, 2000)
-                        }
-                      }}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        if (dragMoved.current) return
-                        if (preview?.pinned && preview.lab.id === lab.id) {
-                          setPreview(null)
-                        } else {
-                          if (leaveTimer.current) clearTimeout(leaveTimer.current)
-                          setPreview({ lab, pinned: true })
-                        }
-                      }}>
-                      {(isActive || isFocused) && <circle cx={lab.x} cy={lab.y} r={r + 9} fill="none" stroke={color} strokeWidth={1.5} opacity={0.28} />}
-                      {isPinned && <circle cx={lab.x} cy={lab.y} r={r + (isActive ? 3 : 2) + 3} fill="none" stroke="#F59E0B" strokeWidth={2} opacity={0.7} />}
-                      <circle cx={lab.x} cy={lab.y} r={r + (isActive || isFocused ? 3 : 2)} fill="white" filter={isFocused ? 'url(#ns-focus)' : isActive ? 'url(#ns-h)' : 'url(#ns)'} opacity={isMatch ? 1 : 0.18} />
-                      <circle cx={lab.x} cy={lab.y} r={r} fill={color} opacity={isMatch ? (isActive || isFocused ? 1 : 0.82) : 0.15} />
+                      onMouseEnter={() => { if (leaveTimer.current) clearTimeout(leaveTimer.current); enterTimer.current = setTimeout(() => setPreview({ lab, pinned: false }), 100) }}
+                      onMouseLeave={() => { if (enterTimer.current) clearTimeout(enterTimer.current); if (!preview?.pinned) { leaveTimer.current = setTimeout(() => { if (!cardHovered.current) setPreview(null) }, 2000) } }}
+                      onClick={(e) => { e.stopPropagation(); if (dragMoved.current) return; if (preview?.pinned && preview.lab.id === lab.id) { setPreview(null) } else { if (leaveTimer.current) clearTimeout(leaveTimer.current); setPreview({ lab, pinned: true }) } }}>
+                      {(isActive || isFocused) && <circle cx={lab.x} cy={lab.y} r={r + 9} fill="none" stroke={color} strokeWidth={1.5} opacity={0.28} style={transStyle} />}
+                      {isPinned && <circle cx={lab.x} cy={lab.y} r={r + (isActive ? 3 : 2) + 3} fill="none" stroke="#F59E0B" strokeWidth={2} opacity={0.7} style={transStyle} />}
+                      <circle cx={lab.x} cy={lab.y} r={r + (isActive || isFocused ? 3 : 2)} fill="white" filter={isFocused ? 'url(#ns-focus)' : isActive ? 'url(#ns-h)' : 'url(#ns)'} opacity={isMatch ? 1 : 0.18} style={transStyle} />
+                      <circle cx={lab.x} cy={lab.y} r={r} fill={color} opacity={isMatch ? (isActive || isFocused ? 1 : 0.82) : 0.15} style={transStyle} />
                       {isPinned && <text x={lab.x} y={lab.y + 4} textAnchor="middle" fontSize={(isActive ? 11 : 9) / zoom} style={{ pointerEvents: 'none' }}>⭐</text>}
                       {showLabel && (
-                        <text x={lab.x} y={lab.y + r + 15} textAnchor="middle"
-                          fontSize={10.5 / zoom}
-                          fontWeight={isActive || isFocused || isPinned ? 700 : 500}
+                        <text x={lab.x} y={lab.y + r + 15} textAnchor="middle" fontSize={10.5 / zoom} fontWeight={isActive || isFocused || isPinned ? 700 : 500}
                           fill={isActive || isFocused ? color : isPinned ? '#92400E' : '#4B5563'}
                           opacity={isMatch ? Math.min(1, (zoom - LABEL_SHOW_ZOOM) / (LABEL_SHOW_ZOOM * 0.5) + 0.3) : 0.15}
                           style={{ pointerEvents: 'none' }}>{lab.name.slice(0, 14)}</text>
@@ -866,6 +823,32 @@ export default function ExplorePage() {
                 <div style={{ overflowY: 'auto', flex: 1 }}>
                   {renderFilterContent()}
                 </div>
+
+                {/* ── 再配置ボタン ── */}
+                {singleScope && mapViewMode === 'global' && (
+                  <div style={{ padding: '8px 12px', borderTop: '1px solid var(--border)', flexShrink: 0 }}>
+                    <button className="remap-btn" onClick={applyMapView} disabled={isAnimating}
+                      style={{ width: '100%', padding: '9px 8px', fontSize: 12, color: 'white', background: 'linear-gradient(135deg, #3B82F6, #6366F1)', border: 'none', borderRadius: 8, cursor: 'pointer', fontFamily: 'var(--font)', fontWeight: 700, boxShadow: '0 2px 8px rgba(59,130,246,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, animation: 'pulseBlue 2.5s infinite' }}>
+                      {isAnimating ? <><span>⟳</span> 再配置中...</> : <><span>✦</span> {singleScope.label}だけで再配置</>}
+                    </button>
+                  </div>
+                )}
+
+                {/* ── 再配置中バナー ── */}
+                {mapViewMode === 'scoped' && (
+                  <div style={{ padding: '8px 12px', borderTop: '1px solid rgba(59,130,246,0.2)', background: 'rgba(59,130,246,0.04)', flexShrink: 0 }}>
+                    <div style={{ fontSize: 11, color: '#3B82F6', fontWeight: 700, marginBottom: 6, textAlign: 'center' }}>
+                      ✦ {scopedLabel} で再配置中
+                    </div>
+                    <button onClick={resetMapView}
+                      style={{ width: '100%', padding: '7px', fontSize: 11, color: '#6B7280', background: 'white', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontFamily: 'var(--font)', fontWeight: 600, transition: 'background 0.15s' }}
+                      onMouseEnter={e => (e.currentTarget.style.background = '#F9FAFB')}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'white')}>
+                      ← 全体マップに戻す
+                    </button>
+                  </div>
+                )}
+
                 {hasFilter && (
                   <div style={{ padding: '8px 12px', borderTop: '1px solid var(--border)', flexShrink: 0 }}>
                     <button onClick={clearFilter} style={{ width: '100%', padding: '6px', fontSize: 11, color: '#EF4444', background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8, cursor: 'pointer', fontFamily: 'var(--font)' }}>✕ 絞り込み解除</button>
@@ -876,9 +859,7 @@ export default function ExplorePage() {
             <button className="filter-fab" onClick={() => setFilterOpen(v => !v)}
               style={{ width: 36, height: 36, borderRadius: 10, border: 'none', flexShrink: 0, background: hasFilter ? 'rgba(59,130,246,0.15)' : 'rgba(255,255,255,0.94)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', boxShadow: '0 2px 10px rgba(17,24,39,0.13)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: hasFilter ? '#3B82F6' : '#6B7280', transition: 'background 0.15s,box-shadow 0.15s', pointerEvents: 'auto', position: 'relative' }}>
               <FilterIcon active={hasFilter} />
-              {hasFilter && (
-                <span style={{ position: 'absolute', top: -5, right: -5, background: '#3B82F6', color: 'white', borderRadius: 999, fontSize: 9, fontWeight: 700, padding: '1px 4px', lineHeight: 1.4 }}>{filterCount}</span>
-              )}
+              {hasFilter && <span style={{ position: 'absolute', top: -5, right: -5, background: '#3B82F6', color: 'white', borderRadius: 999, fontSize: 9, fontWeight: 700, padding: '1px 4px', lineHeight: 1.4 }}>{filterCount}</span>}
             </button>
           </div>
 
@@ -888,17 +869,13 @@ export default function ExplorePage() {
               <div style={{ width: LEGEND_W, background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', borderRadius: 14, border: '1px solid rgba(229,231,235,0.9)', boxShadow: '0 4px 20px rgba(17,24,39,0.12)', overflow: 'hidden' }}>
                 <div style={{ padding: '10px 12px 8px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <span style={{ fontSize: 12, fontWeight: 700, color: activeCluster !== null ? C[activeCluster] : 'var(--text)' }}>● 研究クラスタ</span>
-                  {activeCluster !== null && (
-                    <button onClick={() => setActiveCluster(null)} style={{ fontSize: 10, color: '#6B7280', background: 'none', border: 'none', cursor: 'pointer', padding: '1px 4px', fontFamily: 'var(--font)' }}>✕ 解除</button>
-                  )}
+                  {activeCluster !== null && <button onClick={() => setActiveCluster(null)} style={{ fontSize: 10, color: '#6B7280', background: 'none', border: 'none', cursor: 'pointer', padding: '1px 4px', fontFamily: 'var(--font)' }}>✕ 解除</button>}
                 </div>
                 <div style={{ overflowY: 'auto', maxHeight: 'calc(100vh - 240px)' }}>
                   {CLUSTER_NAMES.map((name, i) => {
                     const active = activeCluster === i, hov = chipHover === i
                     return (
-                      <button key={i} className="chip-btn"
-                        onClick={() => setActiveCluster(active ? null : i)}
-                        onMouseEnter={() => setChipHover(i)} onMouseLeave={() => setChipHover(null)}
+                      <button key={i} className="chip-btn" onClick={() => setActiveCluster(active ? null : i)} onMouseEnter={() => setChipHover(i)} onMouseLeave={() => setChipHover(null)}
                         style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 12px', background: active || hov ? C_CHIP_H[i] : 'transparent', border: 'none', borderBottom: '1px solid rgba(229,231,235,0.4)', cursor: 'pointer', fontFamily: 'var(--font)', textAlign: 'left' }}>
                         <span style={{ width: 9, height: 9, borderRadius: '50%', background: C[i], flexShrink: 0, boxShadow: active ? `0 0 0 3px ${C_CHIP[i]}` : 'none' }} />
                         <span style={{ fontSize: 11, fontWeight: active ? 700 : 500, color: active ? C[i] : 'var(--text)', lineHeight: 1.3 }}>{name}</span>
@@ -914,15 +891,7 @@ export default function ExplorePage() {
               title={legendOpen ? '凡例を閉じる' : '凡例を開く'}>
               {activeCluster !== null
                 ? <span style={{ width: 11, height: 11, borderRadius: '50%', background: C[activeCluster], display: 'inline-block' }} />
-                : <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="5" cy="6" r="1.5" fill="#6B7280"/>
-                    <line x1="9" y1="6" x2="20" y2="6"/>
-                    <circle cx="5" cy="12" r="1.5" fill="#6B7280"/>
-                    <line x1="9" y1="12" x2="20" y2="12"/>
-                    <circle cx="5" cy="18" r="1.5" fill="#6B7280"/>
-                    <line x1="9" y1="18" x2="20" y2="18"/>
-                  </svg>
-              }
+                : <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><circle cx="5" cy="6" r="1.5" fill="#6B7280"/><line x1="9" y1="6" x2="20" y2="6"/><circle cx="5" cy="12" r="1.5" fill="#6B7280"/><line x1="9" y1="12" x2="20" y2="12"/><circle cx="5" cy="18" r="1.5" fill="#6B7280"/><line x1="9" y1="18" x2="20" y2="18"/></svg>}
             </button>
           </div>
 
@@ -931,12 +900,8 @@ export default function ExplorePage() {
             <button className="zoom-btn" onClick={() => applyZoom(zoom + ZOOM_STEP)} disabled={zoom >= MAX_ZOOM} style={{ width: 34, height: 34, borderRadius: 10, background: 'white', border: 'none', boxShadow: '0 2px 8px rgba(17,24,39,0.12)', fontSize: 20, color: '#374151', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontFamily: 'monospace' }}>+</button>
             <div style={{ width: 34, height: 22, borderRadius: 6, background: 'rgba(255,255,255,0.9)', boxShadow: '0 1px 4px rgba(17,24,39,0.08)', fontSize: 10, color: 'var(--muted)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{Math.round(zoom * 100)}%</div>
             <button className="zoom-btn" onClick={() => applyZoom(zoom - ZOOM_STEP)} disabled={zoom <= fitZoom} style={{ width: 34, height: 34, borderRadius: 10, background: 'white', border: 'none', boxShadow: '0 2px 8px rgba(17,24,39,0.12)', fontSize: 22, color: '#374151', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontFamily: 'monospace' }}>−</button>
-            <button className="zoom-btn" onClick={() => { setFocusedLabId(null); doFit(svgW, svgH, labs.map(l => l.map_x != null ? MAP_MARGIN + l.map_x * 2 : MAP_MARGIN + 400), labs.map(l => l.map_y != null ? MAP_MARGIN + l.map_y * 2 : MAP_MARGIN + 300)) }}
-              title="全体表示に戻す" style={{ width: 34, height: 34, borderRadius: 10, background: 'white', border: 'none', boxShadow: '0 2px 8px rgba(17,24,39,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-              <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="#374151" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                <path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H5a1 1 0 01-1-1V9.5z"/>
-                <path d="M9 21V12h6v9"/>
-              </svg>
+            <button className="zoom-btn" onClick={() => { setFocusedLabId(null); resetMapView() }} title="全体表示に戻す" style={{ width: 34, height: 34, borderRadius: 10, background: 'white', border: 'none', boxShadow: '0 2px 8px rgba(17,24,39,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+              <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="#374151" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H5a1 1 0 01-1-1V9.5z"/><path d="M9 21V12h6v9"/></svg>
             </button>
           </div>
 
@@ -970,7 +935,6 @@ export default function ExplorePage() {
             </div>
           )}
         </div>
-
       </main>
     </>
   )
