@@ -271,7 +271,7 @@ export default function CardsPage() {
             </div>
             {/* ページ切替 */}
             <div style={{ display: 'flex', gap: 3, background: '#F3F4F6', borderRadius: 9, padding: 3 }}>
-              <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 11px', borderRadius: 6, fontSize: 12, fontWeight: 500, color: '#6B7280', textDecoration: 'none' }}>
+              <Link href="/map" style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 11px', borderRadius: 6, fontSize: 12, fontWeight: 500, color: '#6B7280', textDecoration: 'none' }}>
                 🗺 マップ
               </Link>
               <span style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 11px', borderRadius: 6, fontSize: 12, fontWeight: 700, color: '#1F2937', background: 'white', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
@@ -439,7 +439,7 @@ export default function CardsPage() {
 
                       {/* フッター */}
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto', paddingTop: 10, borderTop: '1px solid #F3F4F6' }}>
-                        <Link href="/" style={{ fontSize: 11, color: '#9CA3AF', textDecoration: 'none' }}>🗺 マップで見る</Link>
+                        <Link href="/map" style={{ fontSize: 11, color: '#9CA3AF', textDecoration: 'none' }}>🗺 マップで見る</Link>
                         <Link href={`/lab/${lab.id}`}
                           style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '7px 14px', borderRadius: 8, background: color, color: 'white', fontSize: 12, fontWeight: 700, textDecoration: 'none', transition: 'opacity .15s' }}
                           onMouseEnter={e => (e.currentTarget.style.opacity = '0.85')}
