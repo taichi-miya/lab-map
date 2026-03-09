@@ -1,178 +1,201 @@
-import Link from 'next/link'
+﻿import Link from 'next/link'
+import Image from 'next/image'
 
 export default function LandingPage() {
+  const feedbackUrl = '/contact'
+
   return (
     <>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Noto+Sans+JP:wght@400;500;700&display=swap');
 
         :root {
-          --brand: #5FAFC6;
-          --brand-dark: #3E95AE;
-          --brand-light: #DDF3F8;
-          --brand-soft: #F3FBFD;
-          --accent: #8FD3E0;
-          --bg: #ffffff;
-          --bg-sub: #f8fcfd;
-          --surface: #ffffff;
-          --surface-soft: #f6fbfd;
-          --border: #dce8ee;
-          --text: #1f2d3d;
-          --text-sub: #5b6b79;
-          --text-muted: #8fa1ae;
-          --success: #1f9d74;
-          --shadow: 0 16px 40px rgba(41, 88, 107, 0.08);
-          --radius-lg: 24px;
-          --radius-md: 18px;
-          --radius-sm: 12px;
+          --brand: #5046E5;
+          --brand-light: #7B72F0;
+          --brand-dark: #3730C4;
+          --brand-glow: rgba(80, 70, 229, 0.18);
+          --brand-soft: rgba(80, 70, 229, 0.08);
+
+          --accent: #06B6D4;
+          --accent-soft: rgba(6, 182, 212, 0.12);
+
+          --bg: #F8FAFC;
+          --surface: #FFFFFF;
+          --surface-soft: #F8FBFF;
+          --text: #0F172A;
+          --text-sub: #475569;
+          --text-muted: #64748B;
+          --border: rgba(148, 163, 184, 0.22);
+
+          --radius-xl: 28px;
+          --radius-lg: 22px;
+          --radius-md: 16px;
+
+          --shadow: 0 22px 70px rgba(15, 23, 42, 0.08);
+          --shadow-soft: 0 12px 32px rgba(15, 23, 42, 0.06);
+
+          --container: 1180px;
         }
 
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        html { scroll-behavior: smooth; }
-        body {
-          font-family: 'Noto Sans JP', sans-serif;
-          background: linear-gradient(180deg, #ffffff 0%, #fbfeff 100%);
-          color: var(--text);
-          overflow-x: hidden;
+        * {
+          box-sizing: border-box;
         }
-        a { color: inherit; }
+
+        html {
+          scroll-behavior: smooth;
+        }
+
+        body {
+          margin: 0;
+          font-family: 'Noto Sans JP', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+          background:
+            radial-gradient(circle at top left, rgba(80, 70, 229, 0.06), transparent 30%),
+            linear-gradient(180deg, #FCFEFF 0%, #F8FAFC 100%);
+          color: var(--text);
+        }
+
+        a {
+          color: inherit;
+          text-decoration: none;
+        }
+
+        img {
+          max-width: 100%;
+          display: block;
+        }
 
         .container {
-          width: min(1120px, calc(100% - 32px));
+          width: min(calc(100% - 40px), var(--container));
           margin: 0 auto;
         }
 
-        .hero {
-          position: relative;
-          padding: 28px 0 88px;
-          overflow: hidden;
-          background:
-            radial-gradient(circle at top center, rgba(143, 211, 224, 0.28) 0%, transparent 34%),
-            linear-gradient(180deg, #f6fcfe 0%, #ffffff 48%, #ffffff 100%);
+        .section {
+          padding: 88px 0;
         }
 
-        .hero::before {
-          content: '';
-          position: absolute;
-          inset: 0;
-          background:
-            radial-gradient(circle at 12% 20%, rgba(95, 175, 198, 0.10) 0%, transparent 22%),
-            radial-gradient(circle at 88% 12%, rgba(143, 211, 224, 0.16) 0%, transparent 24%);
-          pointer-events: none;
+        .section.alt {
+          background: linear-gradient(180deg, rgba(255,255,255,0.74) 0%, rgba(244,248,255,0.92) 100%);
+          border-top: 1px solid rgba(226, 232, 240, 0.7);
+          border-bottom: 1px solid rgba(226, 232, 240, 0.7);
+        }
+
+        .hero {
+          padding: 24px 0 72px;
         }
 
         .nav {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          gap: 20px;
-          padding: 8px 0 24px;
-          position: relative;
-          z-index: 2;
+          gap: 24px;
+          margin-bottom: 42px;
         }
 
         .brand-lockup {
-          display: flex;
+          display: inline-flex;
           align-items: center;
-          gap: 12px;
-          text-decoration: none;
+          gap: 14px;
+          min-width: 0;
         }
 
         .brand-mark {
-          width: 42px;
-          height: 42px;
+          width: 44px;
+          height: 44px;
           border-radius: 14px;
-          background: linear-gradient(135deg, var(--brand) 0%, #8fd3e0 100%);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: #fff;
+          display: grid;
+          place-items: center;
           font-family: 'Sora', sans-serif;
           font-weight: 800;
-          box-shadow: 0 10px 24px rgba(95, 175, 198, 0.25);
+          font-size: 1.2rem;
+          color: #fff;
+          background: linear-gradient(135deg, var(--brand) 0%, var(--brand-light) 100%);
+          box-shadow: 0 14px 30px rgba(80, 70, 229, 0.25);
+          flex-shrink: 0;
         }
 
         .brand-name {
           display: flex;
           flex-direction: column;
-          gap: 2px;
+          min-width: 0;
         }
 
         .brand-title {
           font-family: 'Sora', sans-serif;
           font-weight: 800;
+          font-size: 1.02rem;
+          line-height: 1.1;
           letter-spacing: -0.02em;
-          font-size: 1.05rem;
-          color: var(--text);
         }
 
         .brand-sub {
-          font-size: 0.78rem;
-          color: var(--text-sub);
+          color: var(--text-muted);
+          font-size: 0.84rem;
+          margin-top: 4px;
         }
 
         .nav-links {
           display: flex;
           align-items: center;
-          gap: 20px;
+          gap: 18px;
           flex-wrap: wrap;
+          justify-content: flex-end;
+        }
+
+        .nav-links a:not(.btn-primary):not(.btn-secondary):not(.btn-ghost) {
           color: var(--text-sub);
-          font-size: 0.92rem;
+          font-size: 0.95rem;
+          font-weight: 500;
         }
 
-        .nav-links a {
-          text-decoration: none;
-        }
-
-        .nav-links a:hover {
+        .nav-links a:not(.btn-primary):not(.btn-secondary):not(.btn-ghost):hover {
           color: var(--text);
         }
 
         .hero-grid {
-          position: relative;
-          z-index: 2;
           display: grid;
-          grid-template-columns: 1.05fr 0.95fr;
-          gap: 40px;
+          grid-template-columns: 1.08fr 0.92fr;
+          gap: 34px;
           align-items: center;
-          padding-top: 28px;
         }
 
         .badge {
           display: inline-flex;
           align-items: center;
-          gap: 8px;
-          padding: 8px 14px;
+          gap: 10px;
+          padding: 10px 14px;
           border-radius: 999px;
-          background: rgba(95, 175, 198, 0.12);
+          border: 1px solid rgba(80, 70, 229, 0.14);
+          background: rgba(255, 255, 255, 0.86);
           color: var(--brand-dark);
-          border: 1px solid rgba(95, 175, 198, 0.24);
-          font-size: 0.82rem;
+          font-size: 0.9rem;
           font-weight: 700;
-          margin-bottom: 18px;
+          box-shadow: var(--shadow-soft);
+          margin-bottom: 22px;
         }
 
         .badge-dot {
-          width: 8px;
-          height: 8px;
+          width: 9px;
+          height: 9px;
           border-radius: 50%;
-          background: var(--success);
+          background: linear-gradient(135deg, #22C55E 0%, #14B8A6 100%);
+          box-shadow: 0 0 0 6px rgba(34, 197, 94, 0.12);
+          flex-shrink: 0;
         }
 
         h1 {
           font-family: 'Sora', sans-serif;
-          font-size: clamp(2.5rem, 5vw, 4.3rem);
-          line-height: 1.08;
-          letter-spacing: -0.04em;
-          color: var(--text);
-          margin-bottom: 18px;
+          font-size: clamp(2.8rem, 6vw, 5.15rem);
+          line-height: 1.02;
+          letter-spacing: -0.045em;
+          margin: 0 0 22px;
         }
 
         .hero-copy {
-          font-size: 1.04rem;
-          line-height: 1.9;
+          margin: 0 0 26px;
+          font-size: 1.08rem;
+          line-height: 1.95;
           color: var(--text-sub);
-          margin-bottom: 28px;
+          max-width: 680px;
         }
 
         .hero-copy strong {
@@ -181,9 +204,9 @@ export default function LandingPage() {
 
         .cta-row {
           display: flex;
-          gap: 12px;
-          flex-wrap: wrap;
           align-items: center;
+          gap: 14px;
+          flex-wrap: wrap;
           margin-bottom: 18px;
         }
 
@@ -194,278 +217,155 @@ export default function LandingPage() {
           align-items: center;
           justify-content: center;
           gap: 8px;
-          text-decoration: none;
-          border-radius: 14px;
+          min-height: 50px;
+          padding: 0 20px;
+          border-radius: 999px;
+          font-size: 0.96rem;
           font-weight: 700;
-          transition: 0.2s ease;
+          transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, background 0.18s ease;
           white-space: nowrap;
         }
 
-        .btn-primary {
-          background: var(--brand);
-          color: #fff;
-          padding: 14px 24px;
-          box-shadow: 0 12px 30px rgba(95, 175, 198, 0.22);
+        .btn-primary:hover,
+        .btn-secondary:hover,
+        .btn-ghost:hover {
+          transform: translateY(-1px);
         }
 
-        .btn-primary:hover {
-          background: var(--brand-dark);
-          transform: translateY(-1px);
+        .btn-primary {
+          color: #fff;
+          background: linear-gradient(135deg, var(--brand) 0%, var(--brand-light) 100%);
+          box-shadow: 0 16px 34px rgba(80, 70, 229, 0.24);
         }
 
         .btn-secondary {
-          background: #fff;
           color: var(--text);
+          background: #fff;
           border: 1px solid var(--border);
-          padding: 14px 22px;
-        }
-
-        .btn-secondary:hover,
-        .btn-ghost:hover {
-          border-color: var(--brand);
-          color: var(--brand-dark);
-          transform: translateY(-1px);
+          box-shadow: var(--shadow-soft);
         }
 
         .btn-ghost {
-          background: transparent;
-          color: var(--text-sub);
-          border: 1px solid var(--border);
-          padding: 13px 20px;
+          color: var(--brand-dark);
+          background: rgba(80, 70, 229, 0.06);
+          border: 1px solid rgba(80, 70, 229, 0.12);
         }
 
         .hero-note {
           display: flex;
-          align-items: center;
           gap: 14px;
           flex-wrap: wrap;
-          color: var(--text-sub);
-          font-size: 0.88rem;
+          color: var(--text-muted);
+          font-size: 0.87rem;
+        }
+
+        .hero-note span {
+          display: inline-flex;
+          align-items: center;
+          gap: 7px;
         }
 
         .hero-note span::before {
-          content: '✓';
-          color: var(--success);
-          font-weight: 700;
-          margin-right: 6px;
+          content: '';
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background: rgba(100, 116, 139, 0.55);
+          display: inline-block;
+        }
+
+        .hero-card,
+        .problem-card,
+        .feature-card,
+        .proof-card,
+        .usecase-card,
+        .step-card,
+        .coverage-box,
+        .developer-card,
+        .final-panel {
+          border-radius: var(--radius-xl);
+          background: rgba(255,255,255,0.94);
+          border: 1px solid rgba(226, 232, 240, 0.92);
+          box-shadow: var(--shadow);
+          backdrop-filter: blur(14px);
         }
 
         .hero-card {
-          background: rgba(255, 255, 255, 0.88);
-          backdrop-filter: blur(8px);
-          border: 1px solid rgba(220, 232, 238, 0.85);
-          border-radius: 28px;
-          box-shadow: var(--shadow);
           overflow: hidden;
+          position: relative;
         }
 
         .map-toolbar {
+          height: 54px;
           display: flex;
           align-items: center;
           gap: 8px;
-          padding: 14px 18px;
-          background: linear-gradient(180deg, #ffffff 0%, #f8fbfd 100%);
-          border-bottom: 1px solid var(--border);
+          padding: 0 18px;
+          border-bottom: 1px solid rgba(226, 232, 240, 0.9);
+          background: linear-gradient(180deg, rgba(255,255,255,0.92) 0%, rgba(245,248,255,0.9) 100%);
         }
 
-        .toolbar-dot { width: 10px; height: 10px; border-radius: 50%; }
+        .toolbar-dot {
+          width: 11px;
+          height: 11px;
+          border-radius: 50%;
+          flex-shrink: 0;
+        }
 
         .toolbar-title {
-          margin-left: 8px;
-          font-size: 0.78rem;
+          margin-left: 6px;
+          font-size: 0.88rem;
           color: var(--text-muted);
-          font-family: 'Sora', sans-serif;
+          font-weight: 600;
+        }
+
+        .map-panel {
+          padding: 0;
         }
 
         .map-meta {
           display: grid;
           grid-template-columns: repeat(3, 1fr);
-          gap: 10px;
+          gap: 14px;
           padding: 16px 18px 18px;
-          background: #fff;
-          border-top: 1px solid var(--border);
+          border-top: 1px solid rgba(226, 232, 240, 0.8);
+          background: linear-gradient(180deg, rgba(248,250,255,0.7) 0%, rgba(255,255,255,0.95) 100%);
         }
 
-        .map-meta-card {
-          background: var(--surface-soft);
-          border: 1px solid var(--border);
-          border-radius: 14px;
+        .meta-chip {
+          border-radius: 16px;
+          border: 1px solid rgba(226, 232, 240, 0.92);
+          background: #fff;
           padding: 14px;
         }
 
-        .map-meta-label {
-          font-size: 0.74rem;
+        .meta-label {
+          font-size: 0.8rem;
           color: var(--text-muted);
           margin-bottom: 6px;
         }
 
-        .map-meta-value {
-          font-family: 'Sora', sans-serif;
-          font-size: 1.02rem;
+        .meta-value {
+          font-size: 0.96rem;
           font-weight: 700;
           color: var(--text);
-        }
-
-        .section {
-          padding: 84px 0;
-        }
-
-        .section.alt {
-          background: linear-gradient(180deg, #fbfeff 0%, #f7fbfd 100%);
-          border-top: 1px solid rgba(220, 232, 238, 0.7);
-          border-bottom: 1px solid rgba(220, 232, 238, 0.7);
-        }
-
-        .section-head {
-          max-width: 760px;
-          margin: 0 auto 42px;
-          text-align: center;
-        }
-
-        .eyebrow {
-          display: inline-block;
-          font-family: 'Sora', sans-serif;
-          font-size: 0.78rem;
-          font-weight: 700;
-          color: var(--brand-dark);
-          letter-spacing: 0.12em;
-          text-transform: uppercase;
-          margin-bottom: 10px;
-        }
-
-        .section-title {
-          font-family: 'Sora', sans-serif;
-          font-size: clamp(1.8rem, 3vw, 2.6rem);
-          line-height: 1.25;
-          letter-spacing: -0.03em;
-          margin-bottom: 14px;
-          color: var(--text);
-        }
-
-        .section-sub {
-          font-size: 0.98rem;
-          line-height: 1.85;
-          color: var(--text-sub);
-        }
-
-        .problem-grid,
-        .feature-grid,
-        .proof-grid,
-        .steps,
-        .usecase-grid {
-          display: grid;
-          gap: 18px;
-        }
-
-        .problem-grid {
-          grid-template-columns: repeat(3, 1fr);
-        }
-
-        .problem-card,
-        .feature-card,
-        .proof-card,
-        .step-card,
-        .usecase-card,
-        .coverage-box,
-        .final-panel {
-          background: #fff;
-          border: 1px solid var(--border);
-          border-radius: var(--radius-lg);
-          box-shadow: var(--shadow);
-        }
-
-        .problem-card {
-          padding: 26px 22px;
-        }
-
-        .problem-icon,
-        .feature-icon,
-        .proof-icon,
-        .step-icon {
-          width: 46px;
-          height: 46px;
-          border-radius: 14px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          background: var(--brand-light);
-          font-size: 1.3rem;
-          margin-bottom: 14px;
-        }
-
-        .card-title {
-          font-weight: 700;
-          font-size: 1.06rem;
           line-height: 1.5;
-          color: var(--text);
-          margin-bottom: 8px;
-        }
-
-        .card-text {
-          color: var(--text-sub);
-          font-size: 0.93rem;
-          line-height: 1.8;
-        }
-
-        .solution-band {
-          background: linear-gradient(135deg, #ffffff 0%, #f0fafc 100%);
-          border: 1px solid var(--border);
-          border-radius: 28px;
-          padding: 36px;
-          box-shadow: var(--shadow);
-          display: grid;
-          grid-template-columns: 1.05fr 0.95fr;
-          gap: 28px;
-          align-items: center;
-        }
-
-        .solution-copy h3 {
-          font-family: 'Sora', sans-serif;
-          font-size: 1.8rem;
-          line-height: 1.3;
-          letter-spacing: -0.03em;
-          margin-bottom: 14px;
-        }
-
-        .solution-copy p {
-          color: var(--text-sub);
-          line-height: 1.9;
-          margin-bottom: 18px;
-        }
-
-        .solution-list {
-          display: grid;
-          gap: 12px;
-        }
-
-        .solution-item {
-          display: flex;
-          gap: 10px;
-          align-items: flex-start;
-          color: var(--text);
-          line-height: 1.7;
-          font-size: 0.95rem;
-        }
-
-        .solution-item::before {
-          content: '✓';
-          color: var(--success);
-          font-weight: 800;
-          margin-top: 1px;
         }
 
         .mini-panel {
-          background: #fff;
-          border: 1px solid var(--border);
-          border-radius: 22px;
-          padding: 24px;
+          margin-top: 18px;
+          padding: 22px 22px 20px;
+          border-radius: var(--radius-lg);
+          border: 1px solid rgba(226, 232, 240, 0.9);
+          background: linear-gradient(135deg, rgba(255,255,255,0.96) 0%, rgba(245,249,255,0.92) 100%);
+          box-shadow: var(--shadow-soft);
         }
 
         .mini-panel h4 {
-          font-size: 0.96rem;
-          color: var(--text-muted);
-          margin-bottom: 14px;
-          font-weight: 700;
+          margin: 0 0 14px;
+          font-family: 'Sora', sans-serif;
+          font-size: 1rem;
+          letter-spacing: -0.02em;
         }
 
         .mini-panel-list {
@@ -475,228 +375,340 @@ export default function LandingPage() {
 
         .mini-row {
           display: grid;
-          grid-template-columns: 92px 1fr;
+          grid-template-columns: 78px 1fr;
           gap: 12px;
           align-items: start;
         }
 
         .mini-label {
-          font-size: 0.82rem;
-          font-weight: 700;
+          font-size: 0.84rem;
           color: var(--brand-dark);
-          background: var(--brand-soft);
+          font-weight: 800;
+          background: rgba(80, 70, 229, 0.08);
           border-radius: 999px;
-          padding: 6px 10px;
+          padding: 7px 10px;
           text-align: center;
         }
 
         .mini-value {
-          font-size: 0.92rem;
           color: var(--text-sub);
-          line-height: 1.7;
+          line-height: 1.75;
+          font-size: 0.94rem;
+        }
+
+        .section-head {
+          max-width: 820px;
+          margin: 0 auto 34px;
+          text-align: center;
+        }
+
+        .eyebrow {
+          display: inline-block;
+          margin-bottom: 14px;
+          color: var(--brand-dark);
+          font-size: 0.84rem;
+          font-weight: 800;
+          letter-spacing: 0.12em;
+          text-transform: uppercase;
+        }
+
+        .section-title {
+          font-family: 'Sora', sans-serif;
+          font-size: clamp(2rem, 4.5vw, 3.4rem);
+          line-height: 1.15;
+          letter-spacing: -0.04em;
+          margin: 0 0 14px;
+        }
+
+        .section-sub {
+          margin: 0 auto;
+          color: var(--text-sub);
+          line-height: 1.9;
+          font-size: 1rem;
+          max-width: 780px;
+        }
+
+        .problem-grid,
+        .feature-grid,
+        .usecase-grid,
+        .steps {
+          display: grid;
+          gap: 20px;
+        }
+
+        .problem-grid {
+          grid-template-columns: repeat(3, 1fr);
+        }
+
+        .problem-card,
+        .feature-card,
+        .usecase-card,
+        .step-card {
+          padding: 30px 24px;
+        }
+
+        .problem-icon,
+        .feature-icon,
+        .usecase-icon {
+          width: 54px;
+          height: 54px;
+          display: grid;
+          place-items: center;
+          border-radius: 18px;
+          background: linear-gradient(135deg, rgba(80, 70, 229, 0.12) 0%, rgba(6, 182, 212, 0.12) 100%);
+          font-size: 1.45rem;
+          margin-bottom: 18px;
+        }
+
+        .card-title {
+          font-family: 'Sora', sans-serif;
+          font-size: 1.22rem;
+          letter-spacing: -0.02em;
+          margin: 0 0 12px;
+        }
+
+        .card-text {
+          color: var(--text-sub);
+          line-height: 1.85;
+          margin: 0;
         }
 
         .feature-grid {
           grid-template-columns: repeat(3, 1fr);
         }
 
-        .feature-card {
-          padding: 26px 22px;
+        .feature-card ul {
+          margin: 16px 0 0;
+          padding-left: 1.2rem;
+          color: var(--text-sub);
+          line-height: 1.85;
         }
 
-        .feature-card ul {
-          margin-top: 12px;
-          display: grid;
-          gap: 8px;
-          padding-left: 18px;
-          color: var(--text-sub);
-          font-size: 0.9rem;
-          line-height: 1.7;
+        .feature-card li + li {
+          margin-top: 8px;
         }
 
         .proof-grid {
-          grid-template-columns: 1.15fr 0.85fr;
+          display: grid;
+          grid-template-columns: 1.2fr 0.8fr;
+          gap: 20px;
         }
 
         .proof-card {
-          padding: 28px;
+          padding: 32px 28px;
         }
 
         .proof-list {
           display: grid;
-          gap: 16px;
+          gap: 18px;
         }
 
         .proof-item {
-          padding: 18px;
-          border: 1px solid var(--border);
-          border-radius: 16px;
-          background: var(--surface-soft);
+          padding-bottom: 18px;
+          border-bottom: 1px solid rgba(226, 232, 240, 0.82);
+        }
+
+        .proof-item:last-child {
+          padding-bottom: 0;
+          border-bottom: none;
         }
 
         .proof-item strong {
           display: block;
-          margin-bottom: 6px;
+          font-size: 1.02rem;
+          margin-bottom: 7px;
           color: var(--text);
-          line-height: 1.5;
         }
 
         .proof-item span {
           color: var(--text-sub);
-          font-size: 0.92rem;
-          line-height: 1.8;
+          line-height: 1.85;
+          display: block;
         }
 
         .proof-stat {
-          text-align: center;
           display: flex;
           flex-direction: column;
           justify-content: center;
           align-items: center;
+          text-align: center;
+          background:
+            radial-gradient(circle at top, rgba(80, 70, 229, 0.11), transparent 50%),
+            linear-gradient(135deg, rgba(255,255,255,0.98) 0%, rgba(246,247,255,0.98) 100%);
         }
 
         .proof-number {
           font-family: 'Sora', sans-serif;
-          font-size: clamp(3rem, 6vw, 5rem);
+          font-size: clamp(3rem, 8vw, 5.6rem);
           line-height: 1;
           font-weight: 800;
           color: var(--brand-dark);
-          margin-bottom: 10px;
+          margin-bottom: 14px;
         }
 
         .proof-caption {
           color: var(--text-sub);
           line-height: 1.8;
-          max-width: 320px;
+          margin: 0 0 16px;
         }
 
         .proof-tags {
           display: flex;
-          justify-content: center;
-          gap: 8px;
+          gap: 10px;
           flex-wrap: wrap;
-          margin-top: 18px;
+          justify-content: center;
         }
 
         .proof-tag {
-          padding: 8px 12px;
           border-radius: 999px;
-          background: var(--brand-soft);
-          color: var(--brand-dark);
+          padding: 8px 12px;
           font-size: 0.84rem;
           font-weight: 700;
-          border: 1px solid rgba(95, 175, 198, 0.15);
+          color: var(--brand-dark);
+          background: rgba(80, 70, 229, 0.08);
+          border: 1px solid rgba(80, 70, 229, 0.12);
         }
 
-        .usecase-toggle {
-          display: flex;
+        .solution-band {
+          display: grid;
+          grid-template-columns: 0.9fr 1.1fr;
+          gap: 24px;
+          align-items: center;
+          padding: 34px 28px;
+        }
+
+        .solution-visual {
+          position: relative;
+          min-height: 300px;
+          border-radius: 24px;
+          overflow: hidden;
+          background:
+            radial-gradient(circle at 20% 30%, rgba(80,70,229,0.18), transparent 20%),
+            radial-gradient(circle at 70% 25%, rgba(6,182,212,0.18), transparent 18%),
+            radial-gradient(circle at 55% 78%, rgba(139,92,246,0.18), transparent 22%),
+            linear-gradient(180deg, #f8fbff 0%, #ffffff 100%);
+          border: 1px solid rgba(226, 232, 240, 0.9);
+        }
+
+        .node {
+          position: absolute;
+          display: inline-flex;
+          align-items: center;
           justify-content: center;
-          gap: 8px;
-          margin-bottom: 24px;
-          flex-wrap: wrap;
-        }
-
-        #tab-ug, #tab-hs { display: none; }
-        #tab-ug:checked ~ .usecase-toggle label[for='tab-ug'],
-        #tab-hs:checked ~ .usecase-toggle label[for='tab-hs'] {
-          background: var(--brand);
-          color: #fff;
-          border-color: var(--brand);
-        }
-        #tab-ug:checked ~ .usecase-content .hs-only { display: none; }
-        #tab-ug:checked ~ .usecase-content .ug-only { display: grid; }
-        #tab-hs:checked ~ .usecase-content .ug-only { display: none; }
-        #tab-hs:checked ~ .usecase-content .hs-only { display: grid; }
-
-        .tab-btn {
-          padding: 10px 18px;
+          min-width: 104px;
+          height: 42px;
+          padding: 0 14px;
           border-radius: 999px;
-          border: 1px solid var(--border);
-          background: #fff;
-          color: var(--text-sub);
-          cursor: pointer;
-          font-size: 0.92rem;
+          background: rgba(255,255,255,0.96);
+          border: 1px solid rgba(226, 232, 240, 0.95);
+          box-shadow: var(--shadow-soft);
+          font-size: 0.86rem;
           font-weight: 700;
-          transition: 0.2s ease;
-          user-select: none;
+          color: var(--text);
+        }
+
+        .node.n1 { top: 18%; left: 14%; }
+        .node.n2 { top: 12%; right: 15%; }
+        .node.n3 { top: 42%; left: 28%; }
+        .node.n4 { top: 56%; right: 20%; }
+        .node.n5 { bottom: 12%; left: 18%; }
+        .node.n6 { bottom: 18%; right: 10%; }
+
+        .solution-copy h3 {
+          font-family: 'Sora', sans-serif;
+          font-size: clamp(1.7rem, 3vw, 2.4rem);
+          line-height: 1.2;
+          letter-spacing: -0.03em;
+          margin: 0 0 14px;
+        }
+
+        .solution-copy p {
+          color: var(--text-sub);
+          line-height: 1.92;
+          margin: 0 0 14px;
+        }
+
+        .solution-points {
+          margin-top: 18px;
+          display: grid;
+          gap: 10px;
+        }
+
+        .solution-point {
+          display: flex;
+          gap: 10px;
+          align-items: flex-start;
+          color: var(--text-sub);
+          line-height: 1.8;
+        }
+
+        .solution-point::before {
+          content: '✓';
+          display: inline-block;
+          margin-top: 2px;
+          color: var(--brand-dark);
+          font-weight: 800;
         }
 
         .usecase-grid {
           grid-template-columns: repeat(2, 1fr);
         }
 
-        .usecase-card {
-          padding: 24px;
-          display: grid;
-          gap: 14px;
+        .usecase-card h3 {
+          font-family: 'Sora', sans-serif;
+          font-size: 1.28rem;
+          letter-spacing: -0.02em;
+          margin: 0 0 12px;
         }
 
-        .usecase-top {
-          display: flex;
-          gap: 14px;
-          align-items: flex-start;
+        .usecase-card p {
+          color: var(--text-sub);
+          line-height: 1.85;
+          margin: 0 0 16px;
         }
 
-        .usecase-emoji {
-          width: 48px;
-          height: 48px;
-          border-radius: 16px;
-          background: var(--brand-light);
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 1.4rem;
-          flex-shrink: 0;
-        }
-
-        .usecase-answer {
-          display: inline-flex;
-          align-items: center;
-          gap: 8px;
-          width: fit-content;
-          background: var(--brand-soft);
-          border: 1px solid rgba(95, 175, 198, 0.2);
-          color: var(--brand-dark);
-          border-radius: 999px;
-          padding: 8px 14px;
-          font-size: 0.88rem;
-          font-weight: 700;
-        }
-
-        .usecase-actions {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          flex-wrap: wrap;
+        .usecase-card ul {
+          margin: 0;
+          padding-left: 1.2rem;
+          color: var(--text-sub);
+          line-height: 1.85;
         }
 
         .steps {
           grid-template-columns: repeat(3, 1fr);
         }
 
-        .step-card {
-          padding: 28px 24px;
-          text-align: left;
-        }
-
         .step-num {
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          width: 36px;
-          height: 36px;
-          border-radius: 50%;
-          background: var(--brand);
+          width: 38px;
+          height: 38px;
+          border-radius: 999px;
+          background: linear-gradient(135deg, var(--brand) 0%, var(--brand-light) 100%);
           color: #fff;
           font-family: 'Sora', sans-serif;
           font-weight: 800;
           margin-bottom: 16px;
         }
 
+        .step-card h3 {
+          font-family: 'Sora', sans-serif;
+          font-size: 1.18rem;
+          letter-spacing: -0.02em;
+          margin: 0 0 10px;
+        }
+
+        .step-card p {
+          color: var(--text-sub);
+          line-height: 1.85;
+          margin: 0;
+        }
+
         .coverage-box {
-          padding: 34px;
+          padding: 38px 32px;
           text-align: center;
-          background: linear-gradient(135deg, #ffffff 0%, #f4fbfd 100%);
+          background: linear-gradient(135deg, rgba(255,255,255,0.98) 0%, rgba(244,251,253,0.98) 100%);
         }
 
         .coverage-number {
@@ -710,8 +722,9 @@ export default function LandingPage() {
 
         .coverage-desc {
           color: var(--text-sub);
-          line-height: 1.8;
-          margin-bottom: 24px;
+          line-height: 1.85;
+          margin: 0 auto 24px;
+          max-width: 760px;
         }
 
         .roadmap {
@@ -732,9 +745,9 @@ export default function LandingPage() {
         }
 
         .roadmap .now {
-          background: var(--brand-soft);
+          background: rgba(80, 70, 229, 0.08);
           color: var(--brand-dark);
-          border-color: rgba(95, 175, 198, 0.24);
+          border-color: rgba(80, 70, 229, 0.12);
           font-weight: 700;
         }
 
@@ -745,14 +758,60 @@ export default function LandingPage() {
           color: var(--text-muted);
         }
 
+        .developer-card {
+          display: grid;
+          grid-template-columns: 320px 1fr;
+          gap: 30px;
+          align-items: center;
+          padding: 30px;
+        }
+
+        .developer-photo-wrap {
+          display: flex;
+          justify-content: center;
+        }
+
+        .developer-photo {
+          width: 100%;
+          max-width: 280px;
+          aspect-ratio: 1 / 1;
+          object-fit: cover;
+          border-radius: 24px;
+          border: 1px solid rgba(226, 232, 240, 0.94);
+          box-shadow: var(--shadow-soft);
+          overflow: hidden;
+          background: #fff;
+        }
+
+        .developer-copy h3 {
+          font-family: 'Sora', sans-serif;
+          font-size: 1.8rem;
+          letter-spacing: -0.03em;
+          margin: 0 0 8px;
+        }
+
+        .developer-role {
+          color: var(--brand-dark);
+          font-weight: 800;
+          margin: 0 0 18px;
+        }
+
+        .developer-copy p {
+          color: var(--text-sub);
+          line-height: 1.95;
+          margin: 0 0 14px;
+        }
+
         .final-cta {
           padding: 0 0 88px;
         }
 
         .final-panel {
-          padding: 42px 28px;
+          padding: 44px 28px;
           text-align: center;
-          background: linear-gradient(135deg, #ffffff 0%, #f2fafc 100%);
+          background:
+            radial-gradient(circle at top, rgba(80,70,229,0.1), transparent 45%),
+            linear-gradient(135deg, rgba(255,255,255,0.98) 0%, rgba(242,250,252,0.98) 100%);
         }
 
         .final-panel h2 {
@@ -760,13 +819,14 @@ export default function LandingPage() {
           font-size: clamp(2rem, 4vw, 3rem);
           line-height: 1.2;
           letter-spacing: -0.03em;
-          margin-bottom: 14px;
+          margin: 0 0 14px;
         }
 
         .final-panel p {
           color: var(--text-sub);
-          line-height: 1.85;
-          margin-bottom: 24px;
+          line-height: 1.9;
+          margin: 0 auto 24px;
+          max-width: 860px;
         }
 
         .free-note {
@@ -783,25 +843,34 @@ export default function LandingPage() {
           text-align: center;
         }
 
-        @media (max-width: 980px) {
+        @media (max-width: 1100px) {
           .hero-grid,
           .solution-band,
-          .proof-grid {
+          .proof-grid,
+          .developer-card {
             grid-template-columns: 1fr;
           }
+        }
 
+        @media (max-width: 980px) {
           .problem-grid,
           .feature-grid,
           .steps,
-          .usecase-grid {
+          .usecase-grid,
+          .map-meta {
             grid-template-columns: 1fr 1fr;
           }
         }
 
         @media (max-width: 720px) {
+          .hero {
+            padding-top: 20px;
+          }
+
           .nav {
             flex-direction: column;
             align-items: flex-start;
+            margin-bottom: 34px;
           }
 
           .nav-links {
@@ -817,23 +886,48 @@ export default function LandingPage() {
           }
 
           .section {
-            padding: 68px 0;
+            padding: 72px 0;
           }
 
-          .solution-band,
+          .hero-card,
           .problem-card,
           .feature-card,
           .proof-card,
-          .step-card,
           .usecase-card,
+          .step-card,
           .coverage-box,
-          .final-panel {
+          .developer-card,
+          .final-panel,
+          .solution-band {
             padding-left: 20px;
             padding-right: 20px;
           }
 
+          .developer-card {
+            padding-top: 24px;
+            padding-bottom: 24px;
+          }
+
           h1 {
-            font-size: 2.4rem;
+            font-size: 2.5rem;
+          }
+
+          .hero-copy {
+            font-size: 1rem;
+          }
+
+          .mini-row {
+            grid-template-columns: 1fr;
+          }
+
+          .cta-row {
+            align-items: stretch;
+          }
+
+          .btn-primary,
+          .btn-secondary,
+          .btn-ghost {
+            width: 100%;
           }
         }
       `}</style>
@@ -850,11 +944,11 @@ export default function LandingPage() {
             </a>
 
             <div className="nav-links">
-              <a href="#problems">課題</a>
+              <a href="#beta">βについて</a>
               <a href="#features">できること</a>
-              <a href="#usecases">使い方</a>
               <a href="#coverage">収録範囲</a>
-              <Link href="/map" className="btn-secondary">マップを見る</Link>
+              <a href="#developer">開発者</a>
+              <Link href="/map" className="btn-secondary">β版を試す</Link>
             </div>
           </nav>
 
@@ -862,28 +956,53 @@ export default function LandingPage() {
             <div>
               <div className="badge">
                 <span className="badge-dot" />
-                東北大学 工学部・工学研究科 238研究室を収録中
+                東北大学 工学部・工学研究科 238研究室を収録中 / β公開中
               </div>
 
               <h1>
                 研究室選びを、<br />
-                もっと直感的に。
+                もっとわかりやすく。<br />
+                いまはβ版として改善中。
               </h1>
 
               <p className="hero-copy">
-                AIが研究内容を分析して、<strong>似た研究室を近くに配置</strong>した2Dマップ。<br />
-                学部生の配属先選びも、高校生の進学先理解も、<strong>「なんとなく興味がある」</strong>から始められます。
+                Labo Navi は、東北大生向けの研究室探索サービスです。<br />
+                現在は <strong>情報修正</strong> と <strong>使いやすさ改善</strong> のためにβ公開しています。
+                使ってみて、<strong>「違う」「足りない」「わかりにくい」</strong> を教えてください。
               </p>
 
               <div className="cta-row">
-                <Link href="/map" className="btn-primary">🗺️ 無料でマップを見る</Link>
-                <a href="#problems" className="btn-ghost">どう役立つか見る</a>
+                <Link href="/map" className="btn-primary">🗺️ β版を試す</Link>
+                <a href={feedbackUrl} target="_blank" rel="noreferrer" className="btn-secondary">
+                  ✍️ 情報修正・要望を送る
+                </a>
+                <a href="https://discord.gg/bdYtcjg9pm" target="_blank" rel="noreferrer" className="btn-ghost">
+                  💬 Discordで参加
+                </a>
               </div>
 
               <div className="hero-note">
                 <span>登録不要</span>
                 <span>完全無料</span>
-                <span>公式HPリンクあり</span>
+                <span>β改善中</span>
+              </div>
+
+              <div className="mini-panel">
+                <h4>Labo Navi でできること</h4>
+                <div className="mini-panel-list">
+                  <div className="mini-row">
+                    <div className="mini-label">探す</div>
+                    <div className="mini-value">分野感覚でマップを眺めながら、興味の近い研究室を見つける</div>
+                  </div>
+                  <div className="mini-row">
+                    <div className="mini-label">比べる</div>
+                    <div className="mini-value">似た研究室を近い場所で比較し、違いを把握しやすくする</div>
+                  </div>
+                  <div className="mini-row">
+                    <div className="mini-label">深掘る</div>
+                    <div className="mini-value">研究概要・タグ・教員名から公式情報へ自然につなげる</div>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -895,106 +1014,90 @@ export default function LandingPage() {
                 <span className="toolbar-title">labonavi.com</span>
               </div>
 
-              <svg viewBox="0 0 640 320" xmlns="http://www.w3.org/2000/svg" style={{ display: 'block', width: '100%', background: 'linear-gradient(180deg, #fafdff 0%, #ffffff 100%)' }}>
-                <defs>
-                  <radialGradient id="g1" cx="50%" cy="50%" r="50%">
-                    <stop offset="0%" stopColor="#5FAFC6" stopOpacity="0.22" />
-                    <stop offset="100%" stopColor="#5FAFC6" stopOpacity="0" />
-                  </radialGradient>
-                  <radialGradient id="g2" cx="50%" cy="50%" r="50%">
-                    <stop offset="0%" stopColor="#8FD3E0" stopOpacity="0.28" />
-                    <stop offset="100%" stopColor="#8FD3E0" stopOpacity="0" />
-                  </radialGradient>
-                  <radialGradient id="g3" cx="50%" cy="50%" r="50%">
-                    <stop offset="0%" stopColor="#9ed9b6" stopOpacity="0.24" />
-                    <stop offset="100%" stopColor="#9ed9b6" stopOpacity="0" />
-                  </radialGradient>
-                  <radialGradient id="g4" cx="50%" cy="50%" r="50%">
-                    <stop offset="0%" stopColor="#b6d8ff" stopOpacity="0.22" />
-                    <stop offset="100%" stopColor="#b6d8ff" stopOpacity="0" />
-                  </radialGradient>
-                </defs>
+              <div className="map-panel">
+                <svg
+                  viewBox="0 0 640 320"
+                  xmlns="http://www.w3.org/2000/svg"
+                  style={{
+                    display: 'block',
+                    width: '100%',
+                    background: 'linear-gradient(180deg, #fafdff 0%, #ffffff 100%)',
+                  }}
+                >
+                  <defs>
+                    <radialGradient id="g1" cx="50%" cy="50%" r="50%">
+                      <stop offset="0%" stopColor="#5046E5" stopOpacity="0.22" />
+                      <stop offset="100%" stopColor="#5046E5" stopOpacity="0" />
+                    </radialGradient>
+                    <radialGradient id="g2" cx="50%" cy="50%" r="50%">
+                      <stop offset="0%" stopColor="#06B6D4" stopOpacity="0.24" />
+                      <stop offset="100%" stopColor="#06B6D4" stopOpacity="0" />
+                    </radialGradient>
+                    <radialGradient id="g3" cx="50%" cy="50%" r="50%">
+                      <stop offset="0%" stopColor="#8B5CF6" stopOpacity="0.18" />
+                      <stop offset="100%" stopColor="#8B5CF6" stopOpacity="0" />
+                    </radialGradient>
+                  </defs>
 
-                <ellipse cx="160" cy="118" rx="106" ry="78" fill="url(#g1)" />
-                <ellipse cx="420" cy="96" rx="112" ry="80" fill="url(#g2)" />
-                <ellipse cx="470" cy="222" rx="92" ry="62" fill="url(#g3)" />
-                <ellipse cx="252" cy="210" rx="86" ry="58" fill="url(#g4)" />
+                  <rect x="0" y="0" width="640" height="320" fill="#fff" />
+                  <circle cx="160" cy="78" r="92" fill="url(#g1)" />
+                  <circle cx="452" cy="102" r="108" fill="url(#g2)" />
+                  <circle cx="346" cy="240" r="112" fill="url(#g3)" />
 
-                {([
-                  [160, 110, 204, 150],
-                  [160, 110, 118, 160],
-                  [204, 150, 138, 138],
-                  [390, 84, 438, 104],
-                  [390, 84, 344, 116],
-                  [438, 104, 410, 142],
-                  [462, 206, 492, 232],
-                  [462, 206, 432, 234],
-                  [252, 194, 294, 220],
-                  [252, 194, 214, 226],
-                ] as [number, number, number, number][]).map(([x1, y1, x2, y2], i) => (
-                  <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="rgba(31,45,61,0.08)" strokeWidth="1.5" />
-                ))}
+                  <line x1="166" y1="82" x2="264" y2="126" stroke="#cbd5e1" strokeWidth="2" />
+                  <line x1="264" y1="126" x2="366" y2="92" stroke="#cbd5e1" strokeWidth="2" />
+                  <line x1="366" y1="92" x2="472" y2="122" stroke="#cbd5e1" strokeWidth="2" />
+                  <line x1="264" y1="126" x2="230" y2="224" stroke="#cbd5e1" strokeWidth="2" />
+                  <line x1="230" y1="224" x2="360" y2="224" stroke="#cbd5e1" strokeWidth="2" />
+                  <line x1="360" y1="224" x2="500" y2="214" stroke="#cbd5e1" strokeWidth="2" />
 
-                {([
-                  [160, 110, 15],
-                  [204, 150, 11],
-                  [118, 160, 11],
-                  [138, 138, 10],
-                  [170, 178, 10],
-                ] as [number, number, number][]).map(([cx, cy, r], i) => (
-                  <g key={`a${i}`}>
-                    <circle cx={cx} cy={cy} r={r} fill="#5FAFC6" opacity={i === 0 ? 0.95 : 0.68} />
-                    {i === 0 && <circle cx={cx} cy={cy} r={24} fill="none" stroke="#5FAFC6" strokeWidth="1.5" opacity="0.28" />}
+                  <g>
+                    <circle cx="166" cy="82" r="13" fill="#5046E5" />
+                    <circle cx="264" cy="126" r="13" fill="#06B6D4" />
+                    <circle cx="366" cy="92" r="13" fill="#5046E5" />
+                    <circle cx="472" cy="122" r="13" fill="#8B5CF6" />
+                    <circle cx="230" cy="224" r="13" fill="#06B6D4" />
+                    <circle cx="360" cy="224" r="13" fill="#5046E5" />
+                    <circle cx="500" cy="214" r="13" fill="#8B5CF6" />
                   </g>
-                ))}
 
-                {([
-                  [390, 84, 14],
-                  [438, 104, 11],
-                  [344, 116, 10],
-                  [410, 142, 10],
-                  [370, 150, 9],
-                  [332, 84, 9],
-                ] as [number, number, number][]).map(([cx, cy, r], i) => (
-                  <circle key={`b${i}`} cx={cx} cy={cy} r={r} fill="#8FD3E0" opacity={i === 0 ? 0.92 : 0.72} />
-                ))}
+                  <g fontFamily="Noto Sans JP, sans-serif" fontSize="12" fill="#334155" fontWeight="700">
+                    <rect x="121" y="45" rx="12" ry="12" width="90" height="28" fill="#ffffff" stroke="#e2e8f0" />
+                    <text x="166" y="63" textAnchor="middle">材料系</text>
 
-                {([
-                  [462, 206, 13],
-                  [492, 232, 10],
-                  [432, 234, 10],
-                  [474, 248, 9],
-                ] as [number, number, number][]).map(([cx, cy, r], i) => (
-                  <circle key={`c${i}`} cx={cx} cy={cy} r={r} fill="#67c095" opacity={i === 0 ? 0.9 : 0.7} />
-                ))}
+                    <rect x="221" y="138" rx="12" ry="12" width="86" height="28" fill="#ffffff" stroke="#e2e8f0" />
+                    <text x="264" y="156" textAnchor="middle">化学系</text>
 
-                {([
-                  [252, 194, 13],
-                  [294, 220, 10],
-                  [214, 226, 10],
-                  [266, 238, 9],
-                ] as [number, number, number][]).map(([cx, cy, r], i) => (
-                  <circle key={`d${i}`} cx={cx} cy={cy} r={r} fill="#8bbcff" opacity={i === 0 ? 0.9 : 0.68} />
-                ))}
+                    <rect x="324" y="54" rx="12" ry="12" width="84" height="28" fill="#ffffff" stroke="#e2e8f0" />
+                    <text x="366" y="72" textAnchor="middle">機械系</text>
 
-                <text x="160" y="72" textAnchor="middle" fontSize="12" fill="#3E95AE" fontFamily="sans-serif">プラズマ・核融合</text>
-                <text x="392" y="54" textAnchor="middle" fontSize="12" fill="#4c91a4" fontFamily="sans-serif">材料・照射工学</text>
-                <text x="472" y="184" textAnchor="middle" fontSize="12" fill="#3b9f76" fontFamily="sans-serif">計測・医療</text>
-                <text x="256" y="174" textAnchor="middle" fontSize="12" fill="#5f8bd1" fontFamily="sans-serif">安全・システム</text>
-              </svg>
+                    <rect x="431" y="136" rx="12" ry="12" width="82" height="28" fill="#ffffff" stroke="#e2e8f0" />
+                    <text x="472" y="154" textAnchor="middle">情報系</text>
 
-              <div className="map-meta">
-                <div className="map-meta-card">
-                  <div className="map-meta-label">収録研究室</div>
-                  <div className="map-meta-value">238 Labs</div>
-                </div>
-                <div className="map-meta-card">
-                  <div className="map-meta-label">対象</div>
-                  <div className="map-meta-value">学部生・高校生</div>
-                </div>
-                <div className="map-meta-card">
-                  <div className="map-meta-label">利用料金</div>
-                  <div className="map-meta-value">Free</div>
+                    <rect x="188" y="238" rx="12" ry="12" width="84" height="28" fill="#ffffff" stroke="#e2e8f0" />
+                    <text x="230" y="256" textAnchor="middle">電気系</text>
+
+                    <rect x="317" y="238" rx="12" ry="12" width="86" height="28" fill="#ffffff" stroke="#e2e8f0" />
+                    <text x="360" y="256" textAnchor="middle">応物系</text>
+
+                    <rect x="458" y="228" rx="12" ry="12" width="84" height="28" fill="#ffffff" stroke="#e2e8f0" />
+                    <text x="500" y="246" textAnchor="middle">建築系</text>
+                  </g>
+                </svg>
+
+                <div className="map-meta">
+                  <div className="meta-chip">
+                    <div className="meta-label">収録範囲</div>
+                    <div className="meta-value">東北大学 工学部・工学研究科</div>
+                  </div>
+                  <div className="meta-chip">
+                    <div className="meta-label">現在の目的</div>
+                    <div className="meta-value">情報修正・UI改善・要望収集</div>
+                  </div>
+                  <div className="meta-chip">
+                    <div className="meta-label">参加方法</div>
+                    <div className="meta-value">閲覧 / フォーム / Discord</div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1002,36 +1105,90 @@ export default function LandingPage() {
         </div>
       </header>
 
+      <section className="section alt" id="beta">
+        <div className="container">
+          <div className="section-head">
+            <span className="eyebrow">Beta</span>
+            <h2 className="section-title">今は、東北大生と一緒に改善している段階です。</h2>
+            <p className="section-sub">
+              Labo Navi は現在β版です。今は完成度を誇る段階ではなく、
+              情報修正・使いやすさ改善・必要機能の把握のために公開しています。
+            </p>
+          </div>
+
+          <div className="proof-grid">
+            <div className="proof-card">
+              <div className="proof-list">
+                <div className="proof-item">
+                  <strong>情報の誤り・抜けを直したい</strong>
+                  <span>
+                    研究室情報は正確さが重要です。間違い、抜け、更新漏れを実際の利用者から集めて改善したいと考えています。
+                  </span>
+                </div>
+                <div className="proof-item">
+                  <strong>実際の使われ方を見ながら改善したい</strong>
+                  <span>
+                    どこで迷うか、どこが見づらいか、何が足りないかは、実際に使ってもらわないとわかりません。
+                  </span>
+                </div>
+                <div className="proof-item">
+                  <strong>本当に必要な機能を知りたい</strong>
+                  <span>
+                    開発者の想像だけで決めるのではなく、東北大生の声をもとに優先順位を決めたいと考えています。
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="proof-card proof-stat">
+              <div className="proof-number">3</div>
+              <p className="proof-caption">
+                このβ版で特に集めたいこと。<br />
+                「情報修正」「使いづらさ」「機能要望」
+              </p>
+              <div className="proof-tags">
+                <span className="proof-tag">情報修正</span>
+                <span className="proof-tag">UI改善</span>
+                <span className="proof-tag">要望歓迎</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section className="section" id="problems">
         <div className="container">
           <div className="section-head">
             <span className="eyebrow">Problems</span>
             <h2 className="section-title">研究室選びが難しいのは、あなたのせいではありません。</h2>
             <p className="section-sub">
-              情報が散らばっていて、比べにくくて、全体像が見えにくい。Labo Navi はその不便さを、見える形に整理します。
+              情報が散らばっていて、比較しづらく、全体像もつかみにくい。
+              興味があっても、どこから見ればいいかわからない。Labo Navi は、まずその入口を整えるためのサービスです。
             </p>
           </div>
 
           <div className="problem-grid">
             <div className="problem-card">
+              <div className="problem-icon">🧭</div>
+              <h3 className="card-title">全体像が見えない</h3>
+              <p className="card-text">
+                研究室の一覧はあっても、分野同士の近さや違いは見えにくく、「どこから見始めるか」で迷いやすいです。
+              </p>
+            </div>
+
+            <div className="problem-card">
+              <div className="problem-icon">📚</div>
+              <h3 className="card-title">比較に時間がかかる</h3>
+              <p className="card-text">
+                研究室ごとに書き方や情報量が違うため、複数の研究室を横並びで理解するのに手間がかかります。
+              </p>
+            </div>
+
+            <div className="problem-card">
               <div className="problem-icon">🧩</div>
-              <h3 className="card-title">情報がバラバラで比較しづらい</h3>
+              <h3 className="card-title">興味の近い候補が広がりにくい</h3>
               <p className="card-text">
-                研究室ごとのHPは見つけても、横並びでは見にくい。結局、どこがどう違うのかがつかみにくい。
-              </p>
-            </div>
-            <div className="problem-card">
-              <div className="problem-icon">🌀</div>
-              <h3 className="card-title">興味がぼんやりしていても探しにくい</h3>
-              <p className="card-text">
-                「材料系が気になる」「医療応用に興味がある」くらいの段階だと、検索ワードすら決めづらい。
-              </p>
-            </div>
-            <div className="problem-card">
-              <div className="problem-icon">🗺️</div>
-              <h3 className="card-title">全体像が見えないから選びづらい</h3>
-              <p className="card-text">
-                似た研究室が近いのか遠いのか、分野の広がりがどうなっているのか、普通の一覧ではわかりにくい。
+                1つ知っている研究室から、その周辺にある近い研究テーマへ自然に広げる導線が弱い状態です。
               </p>
             </div>
           </div>
@@ -1040,35 +1197,38 @@ export default function LandingPage() {
 
       <section className="section alt" id="solution">
         <div className="container">
-          <div className="solution-band">
-            <div className="solution-copy">
-              <span className="eyebrow">Solution</span>
-              <h3>研究室情報を、<br />「選べる形」に整理する。</h3>
-              <p>
-                Labo Navi では、AIが研究内容をもとに研究室同士の近さを解析し、2Dマップ上に配置します。だから、一覧を読み込む前に、まず全体の地図から見渡せます。
-              </p>
-              <div className="solution-list">
-                <div className="solution-item">似た研究室が近くにまとまるから、分野の雰囲気が直感的にわかる</div>
-                <div className="solution-item">気になる点をクリックすると、研究室名・教員名・概要をすぐ確認できる</div>
-                <div className="solution-item">詳細ページから公式HPへ進めるので、深掘りもスムーズ</div>
-              </div>
+          <div className="section-head">
+            <span className="eyebrow">Solution</span>
+            <h2 className="section-title">AIで研究内容を整理し、研究室を“地図として”見られるようにする。</h2>
+            <p className="section-sub">
+              一覧表ではわかりにくい研究室同士の近さを、2Dマップ上で直感的に見られるようにしています。
+            </p>
+          </div>
+
+          <div className="solution-band hero-card">
+            <div className="solution-visual">
+              <div className="node n1">材料</div>
+              <div className="node n2">情報</div>
+              <div className="node n3">化学</div>
+              <div className="node n4">建築</div>
+              <div className="node n5">電気</div>
+              <div className="node n6">機械</div>
             </div>
 
-            <div className="mini-panel">
-              <h4>Labo Navi でできること</h4>
-              <div className="mini-panel-list">
-                <div className="mini-row">
-                  <div className="mini-label">探す</div>
-                  <div className="mini-value">分野感覚でマップを眺めながら、興味の近い研究室を見つける</div>
-                </div>
-                <div className="mini-row">
-                  <div className="mini-label">比べる</div>
-                  <div className="mini-value">似た研究室を近い場所で比較し、違いを把握しやすくする</div>
-                </div>
-                <div className="mini-row">
-                  <div className="mini-label">深掘る</div>
-                  <div className="mini-value">研究概要・タグ・教員名から公式情報へ自然につなげる</div>
-                </div>
+            <div className="solution-copy">
+              <h3>「興味が近い研究室が、近くにある」状態をつくる。</h3>
+              <p>
+                Labo Navi では、研究室情報をもとに AI が研究内容の近さを分析し、
+                近い研究室ほど近くに配置した 2D マップとして表示します。
+              </p>
+              <p>
+                そのため、「完全には知らないけれど、少し気になる」領域からでも探索を始めやすくなります。
+              </p>
+
+              <div className="solution-points">
+                <div className="solution-point">一覧では見えない分野のまとまりがつかみやすい</div>
+                <div className="solution-point">興味の近い研究室を横断して比較しやすい</div>
+                <div className="solution-point">マップから詳細、そして公式情報へ自然につながる</div>
               </div>
             </div>
           </div>
@@ -1081,7 +1241,7 @@ export default function LandingPage() {
             <span className="eyebrow">Features</span>
             <h2 className="section-title">Labo Navi の主要機能</h2>
             <p className="section-sub">
-              Supiful系のLPで強いのは、「何ができるか」をやさしく分解して見せること。ここでも機能を単なる羅列ではなく、使う意味ごとに見せます。
+              研究室を探し、比べ、深掘りするための主要機能をまとめています。
             </p>
           </div>
 
@@ -1089,7 +1249,9 @@ export default function LandingPage() {
             <div className="feature-card">
               <div className="feature-icon">🗺️</div>
               <h3 className="card-title">研究室マップ</h3>
-              <p className="card-text">AIが研究内容を分析し、近い研究室ほど近くに配置。分野のまとまりが一目で見えます。</p>
+              <p className="card-text">
+                AI が研究内容を分析し、近い研究室ほど近くに配置。分野のまとまりが一目で見えます。
+              </p>
               <ul>
                 <li>一覧では見えない全体像がつかめる</li>
                 <li>近い研究内容を横断して見られる</li>
@@ -1100,216 +1262,188 @@ export default function LandingPage() {
             <div className="feature-card">
               <div className="feature-icon">🔎</div>
               <h3 className="card-title">研究室・教員検索</h3>
-              <p className="card-text">先生の名前や研究室名からも探せるので、興味起点でも、人起点でも使えます。</p>
+              <p className="card-text">
+                先生の名前や研究室名からも探せるので、興味起点でも、人起点でも使えます。
+              </p>
               <ul>
                 <li>配属候補の教員をすぐ見つけられる</li>
-                <li>メール先や所属研究室の確認にも便利</li>
                 <li>既に知っている研究室から周辺も見られる</li>
+                <li>名前から研究室を確認したい時にも便利</li>
               </ul>
             </div>
 
             <div className="feature-card">
               <div className="feature-icon">📄</div>
-              <h3 className="card-title">詳細ページ・公式導線</h3>
-              <p className="card-text">概要だけで終わらず、さらに知りたいときは公式HPへ自然につながります。</p>
+              <h3 className="card-title">詳細カードと公式導線</h3>
+              <p className="card-text">
+                研究概要やタグを見て理解を深め、そのまま公式サイトへ移動できます。
+              </p>
               <ul>
-                <li>研究概要をざっくり把握できる</li>
-                <li>タグで研究の雰囲気を理解しやすい</li>
-                <li>公式サイトで最終確認しやすい</li>
+                <li>短時間で概要をつかめる</li>
+                <li>タグから研究室の特徴を比較しやすい</li>
+                <li>最終的には公式情報へ自然につながる</li>
               </ul>
             </div>
           </div>
         </div>
       </section>
 
-      <section className="section alt" id="proof">
+      <section className="section alt" id="usecases">
         <div className="container">
           <div className="section-head">
-            <span className="eyebrow">Why trust this</span>
-            <h2 className="section-title">「見やすい」だけでなく、選ぶ行動につながる設計</h2>
+            <span className="eyebrow">Use cases</span>
+            <h2 className="section-title">こんな人に使ってほしい</h2>
             <p className="section-sub">
-              参考にしたLPの良さは、安心感を先に作ること。Labo Navi でも、無料・公式導線・対象の明確さを先に示して、使い始める心理的ハードルを下げます。
+              配属前の学部生にも、東北大を志望する高校生にも、まずは研究室を探しやすくする入口として使ってほしいと考えています。
             </p>
           </div>
 
-          <div className="proof-grid">
-            <div className="proof-card">
-              <div className="proof-list">
-                <div className="proof-item">
-                  <strong>登録不要・完全無料</strong>
-                  <span>まずは気軽に試せるので、配属検討の初期段階でも触りやすい設計です。</span>
-                </div>
-                <div className="proof-item">
-                  <strong>東北大学向けに絞ってスタート</strong>
-                  <span>最初から広げすぎず、対象を絞ることで、東北大生にとって実用的な体験を優先しています。</span>
-                </div>
-                <div className="proof-item">
-                  <strong>探索から公式情報確認までつながる</strong>
-                  <span>マップで興味を持ち、詳細を見て、最後は公式HPへ進む。情報の流れが途切れません。</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="proof-card proof-stat">
-              <div className="proof-number">238</div>
-              <p className="proof-caption">
-                東北大学 工学部・工学研究科の研究室を収録。まずは「工学系の研究室選び」に特化してスタートします。
+          <div className="usecase-grid">
+            <div className="usecase-card">
+              <div className="usecase-icon">🎓</div>
+              <h3>東北大の学部生</h3>
+              <p>
+                配属先や進学先を考えるときに、研究室の比較を始めやすくするための入口として使えます。
               </p>
-              <div className="proof-tags">
-                <span className="proof-tag">東北大特化</span>
-                <span className="proof-tag">無料公開</span>
-                <span className="proof-tag">公式HP導線</span>
-              </div>
+              <ul>
+                <li>興味がある分野の周辺研究室をざっくり把握する</li>
+                <li>似た研究室同士の違いを比較する</li>
+                <li>候補を絞ってから公式 HP を見に行く</li>
+              </ul>
+            </div>
+
+            <div className="usecase-card">
+              <div className="usecase-icon">🏫</div>
+              <h3>東北大を考える高校生</h3>
+              <p>
+                学科名だけでは見えにくい「その先の研究室」をイメージする入口として使えます。
+              </p>
+              <ul>
+                <li>工学部の中でどんな研究があるかを広く知る</li>
+                <li>学部・学科の先にある研究テーマをイメージする</li>
+                <li>興味のある研究室から進学先の理解を深める</li>
+              </ul>
             </div>
           </div>
         </div>
       </section>
 
-      <section className="section" id="usecases">
-        <div className="container">
-          <div className="section-head">
-            <span className="eyebrow">Use Cases</span>
-            <h2 className="section-title">あなたはどっち？</h2>
-            <p className="section-sub">
-              今のLPで良かった「学部生」「高校生」の分岐はそのまま残しつつ、カードの見せ方をやわらかく整理しました。
-            </p>
-          </div>
-
-          <input type="radio" name="persona" id="tab-ug" defaultChecked />
-          <input type="radio" name="persona" id="tab-hs" />
-
-          <div className="usecase-toggle">
-            <label htmlFor="tab-ug" className="tab-btn">🎓 学部1〜3年生</label>
-            <label htmlFor="tab-hs" className="tab-btn">📚 高校生</label>
-          </div>
-
-          <div className="usecase-content">
-            <div className="usecase-grid ug-only">
-              {[
-                {
-                  icon: '🤔',
-                  title: '研究室配属でどこを選ぼう… 自分の興味に合う研究室ってどこ？',
-                  body: '専攻内に何十もある研究室を一つずつ調べるのは大変。まずは分野の近さから眺めたい。',
-                  answer: 'コースで絞ってマップを見てみよう',
-                },
-                {
-                  icon: '📧',
-                  title: '授業の先生にメールしたいけど、アドレスや所属研究室がすぐ見つからない。',
-                  body: '研究室HPを何件も開く前に、先生名から研究室を引けるとかなり楽になります。',
-                  answer: '先生の名前で研究室を検索してみよう',
-                },
-              ].map((item, i) => (
-                <div key={i} className="usecase-card">
-                  <div className="usecase-top">
-                    <div className="usecase-emoji">{item.icon}</div>
-                    <div>
-                      <h3 className="card-title">{item.title}</h3>
-                      <p className="card-text">{item.body}</p>
-                    </div>
-                  </div>
-                  <div className="usecase-answer">→ {item.answer}</div>
-                  <div className="usecase-actions">
-                    <Link href="/map" className="btn-secondary">マップを見る</Link>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="usecase-grid hs-only">
-              {[
-                {
-                  icon: '🔭',
-                  title: '自分がやりたいことができる学部・学科ってどこだろう？',
-                  body: '学科名だけでは違いがつかみにくいとき、研究室から逆に見ると見え方が変わります。',
-                  answer: '全体マップでタグや分野感を見てみよう',
-                },
-                {
-                  icon: '💡',
-                  title: '本当に興味がある分野って何だろう？ 高校の授業だけで決めていいのかな？',
-                  body: '研究室を眺めると、まだ知らなかったテーマや、意外に惹かれる領域が見つかることがあります。',
-                  answer: 'まずはマップを眺めて新しい興味を探そう',
-                },
-              ].map((item, i) => (
-                <div key={i} className="usecase-card">
-                  <div className="usecase-top">
-                    <div className="usecase-emoji">{item.icon}</div>
-                    <div>
-                      <h3 className="card-title">{item.title}</h3>
-                      <p className="card-text">{item.body}</p>
-                    </div>
-                  </div>
-                  <div className="usecase-answer">→ {item.answer}</div>
-                  <div className="usecase-actions">
-                    <Link href="/map" className="btn-secondary">マップを見る</Link>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="section alt" id="how">
+      <section className="section" id="how">
         <div className="container">
           <div className="section-head">
             <span className="eyebrow">How it works</span>
-            <h2 className="section-title">3ステップで研究室を探せる</h2>
+            <h2 className="section-title">使い方はシンプルです</h2>
             <p className="section-sub">
-              ここは今のLPのわかりやすさをそのまま継承。はじめてでも迷わない操作フローです。
+              まずは広く眺め、気になる研究室を見つけ、詳細や公式情報へ進む。Labo Navi はその最初の導線を整えます。
             </p>
           </div>
 
           <div className="steps">
-            {[
-              {
-                n: '1',
-                icon: '🗺️',
-                title: 'マップを開く',
-                desc: '研究室がAIによって2Dに配置されたマップが表示。近い位置ほど研究内容が近いと考えられます。',
-              },
-              {
-                n: '2',
-                icon: '👆',
-                title: '気になる点をクリック',
-                desc: '研究室名・教員名・研究概要のカードが表示されるので、気になるラボをすぐ比較できます。',
-              },
-              {
-                n: '3',
-                icon: '📄',
-                title: '詳細ページで深掘り',
-                desc: 'タグや研究概要を確認し、必要に応じて公式HPへ進んで詳細を確認できます。',
-              },
-            ].map((step) => (
-              <div key={step.n} className="step-card">
-                <div className="step-num">{step.n}</div>
-                <div className="step-icon">{step.icon}</div>
-                <h3 className="card-title">{step.title}</h3>
-                <p className="card-text">{step.desc}</p>
-              </div>
-            ))}
+            <div className="step-card">
+              <div className="step-num">1</div>
+              <h3>マップを眺める</h3>
+              <p>
+                研究室がどんなまとまりで分布しているかを見ながら、気になる領域や近い研究室を探します。
+              </p>
+            </div>
+
+            <div className="step-card">
+              <div className="step-num">2</div>
+              <h3>詳細カードを見る</h3>
+              <p>
+                研究概要、タグ、教員名などを見て、その研究室が自分の興味に合うかをざっくり判断します。
+              </p>
+            </div>
+
+            <div className="step-card">
+              <div className="step-num">3</div>
+              <h3>公式情報へ進む</h3>
+              <p>
+                気になる研究室が見つかったら、公式 HP や研究室ページへ進んで、より正確な情報を確認します。
+              </p>
+            </div>
           </div>
         </div>
       </section>
 
-      <section className="section" id="coverage">
+      <section className="section alt" id="coverage">
         <div className="container">
           <div className="section-head">
             <span className="eyebrow">Coverage</span>
-            <h2 className="section-title">まずは東北大学から、順次拡大。</h2>
+            <h2 className="section-title">まずは東北大学 工学部・工学研究科から。</h2>
             <p className="section-sub">
-              初期は東北大学 工学部・工学研究科に集中し、見やすさと使いやすさを高めます。その後、全学部・他大学へ広げる想定です。
+              初期は東北大学 工学部・工学研究科に集中し、情報精度と使いやすさを高めます。β期間中は、まずこの範囲の改善を優先します。
             </p>
           </div>
 
           <div className="coverage-box">
             <div className="coverage-number">238</div>
-            <p className="coverage-desc">東北大学 工学部・工学研究科の研究室を収録。研究室選びの最初の入口として、十分に使えるボリュームを目指しています。</p>
+            <p className="coverage-desc">
+              現在、東北大学 工学部・工学研究科の 238 研究室を収録しています。
+              今後は改善を進めながら、対象範囲の拡張も検討していきます。
+            </p>
+
             <div className="roadmap">
-              <span className="now">✅ 東北大学 工学部・工学研究科</span>
+              <span className="now">東北大 工学部・工学研究科</span>
               <span className="arrow">→</span>
-              <span>東北大 全学部</span>
+              <span>他学部へ拡張</span>
               <span className="arrow">→</span>
-              <span>全国の大学</span>
+              <span>他大学へ展開</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="section" id="developer">
+        <div className="container">
+          <div className="section-head">
+            <span className="eyebrow">Developer</span>
+            <h2 className="section-title">このサービスを作っている人</h2>
+            <p className="section-sub">
+              Labo Navi は、東北大学で研究をしながら個人で開発しています。
+            </p>
+          </div>
+
+          <div className="developer-card">
+            <div className="developer-photo-wrap">
+              <div className="developer-photo">
+                <Image
+                  src="/images/taichi.jpg"
+                  alt="宮岸太一"
+                  width={560}
+                  height={560}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  priority
+                />
+              </div>
+            </div>
+
+            <div className="developer-copy">
+              <h3>宮岸 太一</h3>
+              <p className="developer-role">東北大学 博士学生（工学研究科）/ Labo Navi 開発</p>
+
+              <p>
+                東北大学で研究をしながら、研究室選びをもっとわかりやすくするために Labo Navi を開発しています。
+              </p>
+              <p>
+                研究室選びは大学生活やその後の進路に大きく関わる一方で、情報が散らばっていて比較しづらいと感じていました。
+                そこで、まずは研究室を探しやすくする入口を作りたいと思い、このサービスを立ち上げました。
+              </p>
+              <p>
+                現在の Labo Navi はβ版です。今は完成度を誇る段階ではなく、実際に使ってもらいながら、
+                情報修正や使いやすさの改善を進めている段階です。使ってみて気づいたことがあれば、ぜひ率直に教えてください。
+              </p>
+
+              <div className="cta-row" style={{ marginBottom: 0 }}>
+                <a
+                  href="https://www.instagram.com/__radmycerx/"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="btn-secondary"
+                >
+                  Instagramを見る
+                </a>
+              </div>
             </div>
           </div>
         </div>
@@ -1318,22 +1452,39 @@ export default function LandingPage() {
       <section className="final-cta">
         <div className="container">
           <div className="final-panel">
-            <h2>さっそく、研究室マップを見てみよう。</h2>
+            <h2>今ほしいのは、登録数より改善の声です。</h2>
             <p>
-              登録不要・完全無料。<br />
-              「まだ分野が定まっていない」段階でも、Labo Navi なら研究室選びを前に進められます。
+              Labo Navi は現在β版です。<br />
+              今は、情報の誤りや抜けの修正、使いやすさの改善、本当に必要な機能の把握を進めるために公開しています。
+              まずは使ってみて、気づいたことを教えてください。
             </p>
+
             <div className="cta-row" style={{ justifyContent: 'center', marginBottom: 0 }}>
-              <Link href="/map" className="btn-primary">🗺️ マップを見る（無料）</Link>
-              <Link href="/cards" className="btn-secondary">☰ カード一覧を見る</Link>
+              <Link href="/map" className="btn-primary">🗺️ β版を試す</Link>
+              <a href={feedbackUrl} target="_blank" rel="noreferrer" className="btn-secondary">
+                ✍️ 情報修正・要望を送る
+              </a>
+              <a
+                href="https://discord.gg/bdYtcjg9pm"
+                target="_blank"
+                rel="noreferrer"
+                className="btn-ghost"
+              >
+                💬 Discordでβ開発に参加する
+              </a>
             </div>
-            <p className="free-note">登録不要 · 完全無料 · 東北大学 工学部・工学研究科 238件収録</p>
+
+            <p className="free-note">
+              単発の報告はフォームから、継続的に関わりたい方は Discord へ。
+            </p>
           </div>
         </div>
       </section>
 
       <footer>
-        <div className="container">© 2026 Labo Navi · labonavi.com</div>
+        <div className="container">
+          © {new Date().getFullYear()} Labo Navi. 東北大学の研究室選びを、もっとわかりやすく。
+        </div>
       </footer>
     </>
   )
