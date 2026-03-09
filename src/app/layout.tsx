@@ -3,13 +3,18 @@ import { ClerkProvider } from '@clerk/nextjs'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: '東北大学 研究室マップ | labonavi',
+  title: '東北大学 研究室マップ | Labo Navi',
   description: '研究概要の類似度で研究室を2Dマップ化。研究室選びの意思決定を支援します。',
+  manifest: '/manifest.webmanifest',
+  icons: {
+    icon: '/favicon.ico',
+    apple: '/apple-icon.png',
+  },
   openGraph: {
-    title: '東北大学 研究室マップ | labonavi',
+    title: '東北大学 研究室マップ | Labo Navi',
     description: '研究概要の類似度で研究室を2Dマップ化。近いほど研究内容が似ています。',
     url: 'https://www.labonavi.com',
-    siteName: 'labonavi',
+    siteName: 'Labo Navi',
     locale: 'ja_JP',
     type: 'website',
   },
