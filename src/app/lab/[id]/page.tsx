@@ -79,6 +79,20 @@ export default async function LabDetail({ params }: { params: Promise<{ id: stri
         .lab-url-btn:hover { background: #F3FBFD !important; border-color: #5FAFC6 !important; color: #3E95AE !important; }
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-thumb { background: rgba(95,175,198,0.3); border-radius: 99px; }
+        .header-back-icon { display: none; }
+        @media (max-width: 600px) {
+          .header-back-text { display: none !important; }
+          .header-back-icon { display: inline-flex !important; }
+          .main-card { padding: 20px 16px !important; }
+          .lab-name { font-size: 20px !important; }
+          .staff-row { flex-direction: column !important; align-items: flex-start !important; gap: 4px !important; }
+          .sns-label { display: none !important; }
+          .link-row { flex-direction: column !important; align-items: flex-start !important; }
+          .neighbor-inner { flex-wrap: wrap !important; }
+          .neighbor-badge { margin-left: auto !important; }
+          .meta-info { word-break: break-all !important; white-space: normal !important; font-size: 10px !important; }
+          .correction-footer { flex-direction: column !important; align-items: flex-start !important; }
+        }
       `}</style>
 
       {/* ── ヘッダー ── */}
@@ -86,24 +100,25 @@ export default async function LabDetail({ params }: { params: Promise<{ id: stri
         position: 'sticky', top: 0, zIndex: 30,
         background: 'rgba(255,255,255,0.94)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
         borderBottom: '1px solid #DCE8EE',
-        padding: '0 24px', height: 54,
+        padding: '0 16px', height: 54,
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       }}>
         {/* ロゴ */}
-        <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none' }}>
+        <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none', minWidth: 0, flex: 1 }}>
           <div style={{ width: 30, height: 30, borderRadius: 9, background: 'linear-gradient(135deg,#5FAFC6 0%,#8FD3E0 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontFamily: "'Sora',sans-serif", fontWeight: 800, fontSize: 13, boxShadow: '0 3px 10px rgba(95,175,198,0.3)', flexShrink: 0 }}>L</div>
-          <span style={{ fontFamily: "'Sora',sans-serif", fontWeight: 800, fontSize: 14, color: '#1F2D3D', letterSpacing: '-0.02em' }}>Labo Navi</span>
+          <span style={{ fontFamily: "'Sora',sans-serif", fontWeight: 800, fontSize: 14, color: '#1F2D3D', letterSpacing: '-0.02em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Labo Navi</span>
         </Link>
         {/* 戻るリンク */}
         <Link href="/map" className="back-link" style={{
           fontSize: 13, color: '#8FA1AE', textDecoration: 'none',
           display: 'inline-flex', alignItems: 'center', gap: 5,
           fontFamily: "'Sora',sans-serif", fontWeight: 600,
-          padding: '6px 12px', borderRadius: 9,
+          padding: '6px 12px', borderRadius: 9, flexShrink: 0,
           border: '1px solid #DCE8EE', background: 'white',
           transition: 'color .15s, border-color .15s',
         }}>
-          ← マップに戻る
+          <span className="header-back-text">← マップに戻る</span>
+          <span className="header-back-icon" style={{ display: 'none', alignItems: 'center', gap: 4 }}>← 戻る</span>
         </Link>
       </header>
 
@@ -114,7 +129,7 @@ export default async function LabDetail({ params }: { params: Promise<{ id: stri
       }}>
 
         {/* ── メインカード ── */}
-        <div style={{
+        <div className="main-card" style={{
           background: 'white', borderRadius: 24,
           border: `1.5px solid ${strokeColor}`,
           boxShadow: '0 4px 24px rgba(41,88,107,0.09)',
@@ -136,7 +151,7 @@ export default async function LabDetail({ params }: { params: Promise<{ id: stri
           </div>
 
           {/* 研究室名 */}
-          <h1 style={{
+          <h1 className="lab-name" style={{
             fontSize: 26, fontWeight: 800, margin: '0 0 20px',
             letterSpacing: '-0.03em', lineHeight: 1.2,
             fontFamily: "'Sora','Noto Sans JP',sans-serif", color: '#1F2D3D',
@@ -156,7 +171,7 @@ export default async function LabDetail({ params }: { params: Promise<{ id: stri
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                     padding: '9px 14px', borderRadius: 11,
                     background: '#F3FBFD', border: '1px solid #DCE8EE',
-                  }}>
+                  }} className="staff-row">
                     <span style={{ fontSize: 14, fontWeight: 600, color: '#1F2D3D', fontFamily: "'Noto Sans JP',sans-serif" }}>{name}</span>
                     <span style={{
                       fontSize: 11, color: '#8FA1AE',
@@ -173,7 +188,7 @@ export default async function LabDetail({ params }: { params: Promise<{ id: stri
           )}
 
           {/* ── リンク行：研究室HP ＋ SNS ── */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 22, flexWrap: 'wrap', gap: 8 }}>
+          <div className="link-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 22, flexWrap: 'wrap', gap: 8 }}>
             {lab.lab_url && (
               <a href={lab.lab_url} target="_blank" rel="noopener noreferrer" className="lab-url-btn" style={{
                 display: 'inline-flex', alignItems: 'center', gap: 5,
@@ -202,7 +217,7 @@ export default async function LabDetail({ params }: { params: Promise<{ id: stri
                   opacity: 0.5, cursor: 'default',
                 }}>{icon}</div>
               ))}
-              <span style={{ fontSize: 11, color: '#8FA1AE', marginLeft: 2, fontFamily: "'Noto Sans JP',sans-serif" }}>近日公開予定</span>
+              <span className="sns-label" style={{ fontSize: 11, color: '#8FA1AE', marginLeft: 2, fontFamily: "'Noto Sans JP',sans-serif" }}>近日公開予定</span>
             </div>
           </div>
 
@@ -283,7 +298,7 @@ export default async function LabDetail({ params }: { params: Promise<{ id: stri
                     href={`/lab/${n.id}`}
                     className="neighbor-card"
                     style={{
-                      display: 'flex', alignItems: 'center', gap: 12,
+                      display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
                       padding: '13px 16px', borderRadius: 14,
                       background: 'white', border: `1px solid #DCE8EE`,
                       textDecoration: 'none', color: 'inherit',
@@ -319,7 +334,7 @@ export default async function LabDetail({ params }: { params: Promise<{ id: stri
                       </p>
                     </div>
                     {/* 類似度バッジ */}
-                    <span style={{
+                    <span className="neighbor-badge" style={{
                       fontSize: 11, color: nc, fontWeight: 700,
                       background: nChipBg, padding: '3px 10px', borderRadius: 999,
                       flexShrink: 0, border: `1px solid ${nStroke}`,
@@ -335,7 +350,7 @@ export default async function LabDetail({ params }: { params: Promise<{ id: stri
         )}
 
         {/* ── 情報修正依頼フッター ── */}
-        <div style={{
+        <div className="correction-footer" style={{
           marginTop: 8, padding: '14px 20px', borderRadius: 14,
           background: '#F3FBFD', border: '1px solid #DCE8EE',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -361,7 +376,7 @@ export default async function LabDetail({ params }: { params: Promise<{ id: stri
         </div>
 
         {/* メタ情報 */}
-        <p style={{ fontSize: 11, color: '#DCE8EE', marginTop: 16, fontFamily: "'Noto Sans JP',sans-serif" }}>
+        <p className="meta-info" style={{ fontSize: 11, color: '#DCE8EE', marginTop: 16, fontFamily: "'Noto Sans JP',sans-serif", wordBreak: 'break-all' }}>
           取得元: {lab.summary_source_url ?? '未設定'} ／ 最終取得: {lab.fetched_at?.slice(0, 10) ?? '未取得'}
         </p>
       </main>
