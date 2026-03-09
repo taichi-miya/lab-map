@@ -25,7 +25,6 @@ type LabCourse = {
 
 type FilterMode = 'course' | 'dept' | 'tag' | null
 
-// ── LPブランドカラーに揃えたクラスタパレット ──
 const C      = ['#5FAFC6','#22C55E','#F59E0B','#EF4444','#8B5CF6','#EC4899','#14B8A6','#F97316','#0EA5E9','#A855F7'] as const
 const C_CHIP = ['rgba(95,175,198,0.12)','rgba(34,197,94,0.12)','rgba(245,158,11,0.12)','rgba(239,68,68,0.12)','rgba(139,92,246,0.12)','rgba(236,72,153,0.12)','rgba(20,184,166,0.12)','rgba(249,115,22,0.12)','rgba(14,165,233,0.12)','rgba(168,85,247,0.12)']
 const CLUSTER_NAMES = ['情報・社会システム','材料プロセス・金属','流体・航空宇宙・計算力学','環境・土木・化学プロセス','ナノ材料・機能デバイス','エネルギーデバイス・ナノ化学','ロボット・医工学・バイオ','計測・イメージング・量子ビーム','通信・光・電子デバイス','原子力・核融合・プラズマ']
@@ -64,6 +63,22 @@ export default function CardsPage() {
   const [activeCluster, setActiveCluster] = useState<number | null>(null)
   const [sortBy, setSortBy] = useState<'default' | 'cluster' | 'name'>('default')
   const [showPinsOnly, setShowPinsOnly] = useState(false)
+
+  // スマホ対応 state
+  const [isMobile, setIsMobile] = useState(false)
+  const [mobileFilterOpen, setMobileFilterOpen] = useState(false)
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false)
+
+  useEffect(() => {
+    const check = () => {
+      const mobile = window.innerWidth < 640
+      setIsMobile(mobile)
+      if (mobile) setFilterOpen(false)
+    }
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
 
   useEffect(() => {
     ;(async () => {
@@ -149,11 +164,11 @@ export default function CardsPage() {
     return 0
   })
 
+  // フィルターコンテンツ（PC・スマホ共用）
   const renderFilterContent = () => {
     if (filterMode === 'course') return (
       <>
         {hasDeptFilter && <div style={{ padding: '6px 10px', background: 'rgba(239,68,68,0.06)', margin: '0 8px 6px', borderRadius: 8, fontSize: 11, color: '#EF4444', fontFamily: "'Noto Sans JP',sans-serif" }}>⚠ 専攻フィルター選択中</div>}
-        {/* クラスタフィルター */}
         <div style={{ padding: '8px 12px 8px', borderBottom: '1px solid #DCE8EE' }}>
           <div style={{ fontSize: 10, fontWeight: 700, color: '#8FA1AE', marginBottom: 6, letterSpacing: '0.06em', fontFamily: "'Sora',sans-serif" }}>研究クラスタ</div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
@@ -234,7 +249,7 @@ export default function CardsPage() {
     return null
   }
 
-  // ── ローディング ──
+  // ローディング
   if (loading || !authLoaded) return (
     <>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Sora:wght@700;800&family=Noto+Sans+JP:wght@400;500;700&display=swap');@keyframes spin{to{transform:rotate(360deg)}}`}</style>
@@ -247,6 +262,57 @@ export default function CardsPage() {
     </>
   )
 
+  // スマホ用フィルターシート
+  const renderMobileFilterSheet = () => (
+    <>
+      <div onClick={() => setMobileFilterOpen(false)}
+        style={{ position: 'fixed', inset: 0, zIndex: 55, background: 'rgba(0,0,0,0.3)' }} />
+      <div style={{
+        position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 60,
+        background: 'white', borderRadius: '20px 20px 0 0',
+        maxHeight: '82vh', display: 'flex', flexDirection: 'column',
+        boxShadow: '0 -4px 32px rgba(41,88,107,0.18)',
+        paddingBottom: 'env(safe-area-inset-bottom)',
+        animation: 'slideUpSheet 0.22s cubic-bezier(0.34,1.3,0.64,1) forwards',
+      }}>
+        <div style={{ flexShrink: 0 }}>
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '10px 0 0' }}>
+            <div style={{ width: 36, height: 4, borderRadius: 99, background: '#DCE8EE' }} />
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px 8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+              <FilterIcon active={hasFilter} />
+              <span style={{ fontSize: 15, fontWeight: 700, color: hasFilter ? '#5FAFC6' : '#1F2D3D', fontFamily: "'Sora',sans-serif" }}>絞り込み</span>
+              {hasFilter && <span style={{ fontSize: 12, color: '#8FA1AE', fontFamily: "'Noto Sans JP',sans-serif" }}>{sortedLabs.length}件</span>}
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {hasFilter && (
+                <button onClick={clearFilter}
+                  style={{ fontSize: 12, color: '#EF4444', background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.18)', borderRadius: 8, padding: '5px 10px', cursor: 'pointer', fontFamily: "'Sora',sans-serif" }}>
+                  解除
+                </button>
+              )}
+              <button onClick={() => setMobileFilterOpen(false)}
+                style={{ fontSize: 13, color: '#5B6B79', background: '#F3FBFD', border: '1px solid #DCE8EE', borderRadius: 8, padding: '5px 12px', cursor: 'pointer', fontWeight: 600, fontFamily: "'Sora',sans-serif" }}>
+                完了
+              </button>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 2, background: '#F3FBFD', borderRadius: 10, padding: 3, margin: '0 12px 8px', border: '1px solid #DCE8EE' }}>
+            {FILTER_TABS.map(({ mode, label }) => (
+              <button key={mode} className="filter-tab" onClick={() => switchMode(mode)}
+                style={{ flex: 1, padding: '7px 4px', borderRadius: 8, fontSize: 12, fontWeight: filterMode === mode ? 700 : 500, background: filterMode === mode ? 'white' : 'transparent', color: filterMode === mode ? '#1F2D3D' : '#8FA1AE', boxShadow: filterMode === mode ? '0 1px 4px rgba(41,88,107,0.08)' : 'none', border: 'none', cursor: 'pointer', fontFamily: "'Sora',sans-serif" }}>
+                {label}
+              </button>
+            ))}
+          </div>
+          <div style={{ height: 1, background: '#DCE8EE' }} />
+        </div>
+        <div style={{ overflowY: 'auto', flex: 1 }}>{renderFilterContent()}</div>
+      </div>
+    </>
+  )
+
   return (
     <>
       <style>{`
@@ -254,8 +320,7 @@ export default function CardsPage() {
         :root {
           --brand: #5FAFC6; --brand-dark: #3E95AE; --brand-soft: #F3FBFD;
           --border: #DCE8EE; --text: #1F2D3D; --muted: #8FA1AE;
-          --font: 'Sora','Noto Sans JP',sans-serif;
-          --font-body: 'Noto Sans JP',sans-serif;
+          --font: 'Sora','Noto Sans JP',sans-serif; --font-body: 'Noto Sans JP',sans-serif;
         }
         *, *::before, *::after { box-sizing: border-box; }
         body { margin: 0; background: #F3FBFD; font-family: var(--font-body); color: var(--text); }
@@ -267,6 +332,7 @@ export default function CardsPage() {
         .pin-btn { transition: transform .1s, background .15s; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; }
         .pin-btn:hover { transform: scale(1.15); }
         @keyframes fadeInUp { from { opacity:0; transform:translateY(10px) } to { opacity:1; transform:translateY(0) } }
+        @keyframes slideUpSheet { from { transform:translateY(100%) } to { transform:translateY(0) } }
         @keyframes spin { to { transform: rotate(360deg) } }
         .card-anim { animation: fadeInUp 0.25s ease forwards; opacity: 0; }
         .tag-chip:hover { opacity: 0.75; }
@@ -276,148 +342,192 @@ export default function CardsPage() {
 
       <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', background: '#F3FBFD' }}>
 
-        {/* ── ヘッダー ── */}
-        <header style={{
-          position: 'sticky', top: 0, zIndex: 30,
-          background: 'rgba(255,255,255,0.94)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
-          borderBottom: '1px solid #DCE8EE',
-          padding: '0 20px', height: 54,
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap',
-        }}>
-          {/* 左：ロゴ＋タイトル＋タブ */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-            {/* ロゴ */}
-            <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none', flexShrink: 0 }}>
-              <div style={{ width: 30, height: 30, borderRadius: 9, background: 'linear-gradient(135deg,#5FAFC6 0%,#8FD3E0 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontFamily: "'Sora',sans-serif", fontWeight: 800, fontSize: 13, boxShadow: '0 3px 10px rgba(95,175,198,0.3)' }}>L</div>
-              <span style={{ fontFamily: "'Sora',sans-serif", fontWeight: 800, fontSize: 14, color: '#1F2D3D', letterSpacing: '-0.02em' }}>Labo Navi</span>
-            </Link>
-            {/* タイトル */}
-            <div style={{ borderLeft: '1px solid #DCE8EE', paddingLeft: 14 }}>
-              <p style={{ fontSize: 12, color: '#8FA1AE', margin: 0, fontFamily: "'Noto Sans JP',sans-serif" }}>
-                {sortedLabs.length}件表示中
-              </p>
-            </div>
-            {/* ページ切替タブ */}
-            <div style={{ display: 'flex', gap: 3, background: '#F3FBFD', borderRadius: 10, padding: 3, border: '1px solid #DCE8EE', flexShrink: 0 }}>
-              <Link href="/map" style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px', borderRadius: 7, fontSize: 12, fontWeight: 500, color: '#8FA1AE', textDecoration: 'none', transition: 'background .15s', fontFamily: "'Sora',sans-serif" }}
-                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(95,175,198,0.08)')}
-                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                🗺 マップ
-              </Link>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px', borderRadius: 7, fontSize: 12, fontWeight: 700, color: '#1F2D3D', background: 'white', boxShadow: '0 1px 4px rgba(41,88,107,0.08)', fontFamily: "'Sora',sans-serif" }}>
-                ☰ カード
-              </span>
-            </div>
-          </div>
-
-          {/* 右：検索・ソート・ピン・認証 */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            {/* 検索 */}
-            <div style={{ position: 'relative' }}>
-              <svg style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} width={13} height={13} viewBox="0 0 20 20" fill="none">
-                <circle cx="8.5" cy="8.5" r="5.5" stroke="#8FA1AE" strokeWidth="1.8"/><path d="M13 13l3.5 3.5" stroke="#8FA1AE" strokeWidth="1.8" strokeLinecap="round"/>
-              </svg>
-              <input type="text" placeholder="研究室名・教員名・キーワード..." value={query} onChange={e => setQuery(e.target.value)}
-                style={{ paddingLeft: 30, paddingRight: query ? 28 : 12, paddingTop: 8, paddingBottom: 8, fontSize: 13, borderRadius: 11, border: '1.5px solid #DCE8EE', background: '#F3FBFD', outline: 'none', width: 226, fontFamily: "'Noto Sans JP',sans-serif", color: '#1F2D3D', transition: 'border-color .15s, box-shadow .15s' }}
-                onFocus={e => { e.currentTarget.style.borderColor = '#5FAFC6'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(95,175,198,0.15)' }}
-                onBlur={e => { e.currentTarget.style.borderColor = '#DCE8EE'; e.currentTarget.style.boxShadow = 'none' }} />
-              {query && (
-                <button onClick={() => setQuery('')} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: '#8FA1AE', padding: 2 }}>✕</button>
-              )}
-            </div>
-
-            {/* ソート */}
-            <select value={sortBy} onChange={e => setSortBy(e.target.value as typeof sortBy)}
-              style={{ padding: '8px 10px', fontSize: 12, borderRadius: 11, border: '1.5px solid #DCE8EE', background: 'white', outline: 'none', fontFamily: "'Sora',sans-serif", color: '#1F2D3D', cursor: 'pointer' }}>
-              <option value="default">並び順: デフォルト</option>
-              <option value="cluster">クラスタ別</option>
-              <option value="name">名前順</option>
-            </select>
-
-            {/* ピンのみ表示 */}
-            <button onClick={() => setShowPinsOnly(v => !v)}
-              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', borderRadius: 11, border: `1px solid ${showPinsOnly ? '#FEF08A' : '#DCE8EE'}`, background: showPinsOnly ? '#FEFCE8' : 'white', color: showPinsOnly ? '#92400E' : '#5B6B79', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: "'Sora',sans-serif", transition: 'all .15s' }}>
-              {showPinsOnly ? '⭐' : '☆'} ピン
-            </button>
-
-            {/* 認証UI */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              {isSignedIn ? (
-                <UserButton />
-              ) : (
-                <>
-                  <SignInButton mode="modal">
-                    <button style={{ padding: '7px 12px', fontSize: 12, fontWeight: 600, borderRadius: 9, border: '1.5px solid #DCE8EE', background: 'white', color: '#1F2D3D', cursor: 'pointer', fontFamily: "'Sora',sans-serif", transition: 'border-color .15s' }}
-                      onMouseEnter={e => (e.currentTarget.style.borderColor = '#5FAFC6')}
-                      onMouseLeave={e => (e.currentTarget.style.borderColor = '#DCE8EE')}>
-                      ログイン
-                    </button>
-                  </SignInButton>
-                  <SignUpButton mode="modal">
-                    <button style={{ padding: '7px 13px', fontSize: 12, fontWeight: 700, borderRadius: 9, border: 'none', background: '#5FAFC6', color: 'white', cursor: 'pointer', fontFamily: "'Sora',sans-serif", boxShadow: '0 2px 8px rgba(95,175,198,0.35)', transition: 'opacity .15s' }}
-                      onMouseEnter={e => (e.currentTarget.style.opacity = '0.88')}
-                      onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>
-                      新規登録
-                    </button>
-                  </SignUpButton>
-                </>
-              )}
-            </div>
-          </div>
-        </header>
-
-        <div style={{ display: 'flex', flex: 1 }}>
-          {/* ── フィルターサイドバー ── */}
-          <aside style={{
-            width: filterOpen ? FILTER_W + 16 : 52, flexShrink: 0,
-            transition: 'width 0.22s ease',
-            position: 'sticky', top: 54, height: 'calc(100vh - 54px)',
-            overflowY: 'auto', display: 'flex', flexDirection: 'column', padding: '10px 0',
-            borderRight: '1px solid #DCE8EE', background: 'white',
+        {/* PC ヘッダー（640px 以上）*/}
+        {!isMobile && (
+          <header style={{
+            position: 'sticky', top: 0, zIndex: 30,
+            background: 'rgba(255,255,255,0.94)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
+            borderBottom: '1px solid #DCE8EE', padding: '0 20px', height: 54,
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap',
           }}>
-            {/* フィルター開閉ボタン */}
-            <div style={{ padding: '0 8px 8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <button onClick={() => setFilterOpen(v => !v)}
-                style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', padding: '4px 6px', borderRadius: 8, color: hasFilter ? '#5FAFC6' : '#5B6B79', fontFamily: "'Sora',sans-serif", fontSize: 12, fontWeight: 700, position: 'relative' }}
-                onMouseEnter={e => (e.currentTarget.style.background = '#F3FBFD')}
-                onMouseLeave={e => (e.currentTarget.style.background = 'none')}>
-                <FilterIcon active={hasFilter} />
-                {filterOpen && <span>絞り込み</span>}
-                {hasFilter && (
-                  <span style={{ background: '#5FAFC6', color: 'white', borderRadius: 999, fontSize: 9, padding: '1px 5px', lineHeight: 1.4 }}>{filterCount}</span>
-                )}
-              </button>
-              {filterOpen && hasFilter && (
-                <span style={{ fontSize: 11, color: '#8FA1AE', paddingRight: 8, fontFamily: "'Noto Sans JP',sans-serif" }}>{sortedLabs.length}件</span>
-              )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+              <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none', flexShrink: 0 }}>
+                <div style={{ width: 30, height: 30, borderRadius: 9, background: 'linear-gradient(135deg,#5FAFC6 0%,#8FD3E0 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontFamily: "'Sora',sans-serif", fontWeight: 800, fontSize: 13, boxShadow: '0 3px 10px rgba(95,175,198,0.3)' }}>L</div>
+                <span style={{ fontFamily: "'Sora',sans-serif", fontWeight: 800, fontSize: 14, color: '#1F2D3D', letterSpacing: '-0.02em' }}>Labo Navi</span>
+              </Link>
+              <div style={{ borderLeft: '1px solid #DCE8EE', paddingLeft: 14 }}>
+                <p style={{ fontSize: 12, color: '#8FA1AE', margin: 0, fontFamily: "'Noto Sans JP',sans-serif" }}>{sortedLabs.length}件表示中</p>
+              </div>
+              <div style={{ display: 'flex', gap: 3, background: '#F3FBFD', borderRadius: 10, padding: 3, border: '1px solid #DCE8EE', flexShrink: 0 }}>
+                <Link href="/map" style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px', borderRadius: 7, fontSize: 12, fontWeight: 500, color: '#8FA1AE', textDecoration: 'none', transition: 'background .15s', fontFamily: "'Sora',sans-serif" }}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'rgba(95,175,198,0.08)')}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>🗺 マップ</Link>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px', borderRadius: 7, fontSize: 12, fontWeight: 700, color: '#1F2D3D', background: 'white', boxShadow: '0 1px 4px rgba(41,88,107,0.08)', fontFamily: "'Sora',sans-serif" }}>☰ カード</span>
+              </div>
             </div>
-
-            {filterOpen && (
-              <div style={{ margin: '0 8px', background: 'white', borderRadius: 14, border: '1px solid #DCE8EE', boxShadow: '0 2px 12px rgba(41,88,107,0.07)', overflow: 'hidden', flex: 1 }}>
-                {/* タブ */}
-                <div style={{ padding: '8px 8px 0' }}>
-                  <div style={{ display: 'flex', gap: 2, background: '#F3FBFD', borderRadius: 9, padding: 2, border: '1px solid #DCE8EE' }}>
-                    {FILTER_TABS.map(({ mode, label }) => (
-                      <button key={mode} className="filter-tab" onClick={() => switchMode(mode)}
-                        style={{ flex: 1, padding: '5px 4px', borderRadius: 7, fontSize: 11, fontWeight: filterMode === mode ? 700 : 500, background: filterMode === mode ? 'white' : 'transparent', color: filterMode === mode ? '#1F2D3D' : '#8FA1AE', boxShadow: filterMode === mode ? '0 1px 4px rgba(41,88,107,0.08)' : 'none' }}>
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div style={{ width: '100%', height: 1, background: '#DCE8EE', margin: '8px 0 0' }} />
-                <div style={{ overflowY: 'auto' }}>{renderFilterContent()}</div>
-                {hasFilter && (
-                  <div style={{ padding: '8px 12px', borderTop: '1px solid #DCE8EE' }}>
-                    <button onClick={clearFilter} style={{ width: '100%', padding: '6px', fontSize: 11, color: '#EF4444', background: 'rgba(239,68,68,0.05)', border: '1px solid rgba(239,68,68,0.18)', borderRadius: 9, cursor: 'pointer', fontFamily: "'Sora',sans-serif" }}>✕ 絞り込み解除</button>
-                  </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <div style={{ position: 'relative' }}>
+                <svg style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} width={13} height={13} viewBox="0 0 20 20" fill="none">
+                  <circle cx="8.5" cy="8.5" r="5.5" stroke="#8FA1AE" strokeWidth="1.8"/><path d="M13 13l3.5 3.5" stroke="#8FA1AE" strokeWidth="1.8" strokeLinecap="round"/>
+                </svg>
+                <input type="text" placeholder="研究室名・教員名・キーワード..." value={query} onChange={e => setQuery(e.target.value)}
+                  style={{ paddingLeft: 30, paddingRight: query ? 28 : 12, paddingTop: 8, paddingBottom: 8, fontSize: 13, borderRadius: 11, border: '1.5px solid #DCE8EE', background: '#F3FBFD', outline: 'none', width: 226, fontFamily: "'Noto Sans JP',sans-serif", color: '#1F2D3D', transition: 'border-color .15s, box-shadow .15s' }}
+                  onFocus={e => { e.currentTarget.style.borderColor = '#5FAFC6'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(95,175,198,0.15)' }}
+                  onBlur={e => { e.currentTarget.style.borderColor = '#DCE8EE'; e.currentTarget.style.boxShadow = 'none' }} />
+                {query && <button onClick={() => setQuery('')} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: '#8FA1AE', padding: 2 }}>✕</button>}
+              </div>
+              <select value={sortBy} onChange={e => setSortBy(e.target.value as typeof sortBy)}
+                style={{ padding: '8px 10px', fontSize: 12, borderRadius: 11, border: '1.5px solid #DCE8EE', background: 'white', outline: 'none', fontFamily: "'Sora',sans-serif", color: '#1F2D3D', cursor: 'pointer' }}>
+                <option value="default">並び順: デフォルト</option>
+                <option value="cluster">クラスタ別</option>
+                <option value="name">名前順</option>
+              </select>
+              <button onClick={() => setShowPinsOnly(v => !v)}
+                style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', borderRadius: 11, border: `1px solid ${showPinsOnly ? '#FEF08A' : '#DCE8EE'}`, background: showPinsOnly ? '#FEFCE8' : 'white', color: showPinsOnly ? '#92400E' : '#5B6B79', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: "'Sora',sans-serif", transition: 'all .15s' }}>
+                {showPinsOnly ? '⭐' : '☆'} ピン
+              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                {isSignedIn ? <UserButton /> : (
+                  <>
+                    <SignInButton mode="modal">
+                      <button style={{ padding: '7px 12px', fontSize: 12, fontWeight: 600, borderRadius: 9, border: '1.5px solid #DCE8EE', background: 'white', color: '#1F2D3D', cursor: 'pointer', fontFamily: "'Sora',sans-serif", transition: 'border-color .15s' }}
+                        onMouseEnter={e => (e.currentTarget.style.borderColor = '#5FAFC6')}
+                        onMouseLeave={e => (e.currentTarget.style.borderColor = '#DCE8EE')}>ログイン</button>
+                    </SignInButton>
+                    <SignUpButton mode="modal">
+                      <button style={{ padding: '7px 13px', fontSize: 12, fontWeight: 700, borderRadius: 9, border: 'none', background: '#5FAFC6', color: 'white', cursor: 'pointer', fontFamily: "'Sora',sans-serif", boxShadow: '0 2px 8px rgba(95,175,198,0.35)', transition: 'opacity .15s' }}
+                        onMouseEnter={e => (e.currentTarget.style.opacity = '0.88')}
+                        onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>新規登録</button>
+                    </SignUpButton>
+                  </>
                 )}
               </div>
-            )}
-          </aside>
+            </div>
+          </header>
+        )}
 
-          {/* ── カードグリッド ── */}
-          <main style={{ flex: 1, padding: '20px 24px 60px', minWidth: 0 }}>
+        {/* スマホ ヘッダー（640px 未満）*/}
+        {isMobile && (
+          <header style={{
+            position: 'sticky', top: 0, zIndex: 30,
+            background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
+            borderBottom: '1px solid #DCE8EE', padding: '0 12px', height: 52,
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+          }}>
+            <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 7, textDecoration: 'none', flexShrink: 0 }}>
+              <div style={{ width: 28, height: 28, borderRadius: 8, background: 'linear-gradient(135deg,#5FAFC6 0%,#8FD3E0 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontFamily: "'Sora',sans-serif", fontWeight: 800, fontSize: 12, boxShadow: '0 2px 8px rgba(95,175,198,0.3)' }}>L</div>
+              <span style={{ fontFamily: "'Sora',sans-serif", fontWeight: 800, fontSize: 15, color: '#1F2D3D', letterSpacing: '-0.02em' }}>Labo Navi</span>
+            </Link>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <button onClick={() => setMobileSearchOpen(v => !v)}
+                style={{ width: 38, height: 38, borderRadius: 10, border: '1px solid #DCE8EE', background: (query || mobileSearchOpen) ? 'rgba(95,175,198,0.1)' : 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: query ? '#5FAFC6' : '#5B6B79', position: 'relative' }}>
+                <svg width={16} height={16} viewBox="0 0 20 20" fill="none">
+                  <circle cx="8.5" cy="8.5" r="5.5" stroke="currentColor" strokeWidth="1.8"/>
+                  <path d="M13 13l3.5 3.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+                </svg>
+                {query && <span style={{ position: 'absolute', top: 6, right: 6, width: 6, height: 6, borderRadius: '50%', background: '#5FAFC6' }} />}
+              </button>
+              <div style={{ display: 'flex', gap: 2, background: '#F3FBFD', borderRadius: 9, padding: 2, border: '1px solid #DCE8EE' }}>
+                <Link href="/map" style={{ display: 'flex', alignItems: 'center', padding: '5px 9px', borderRadius: 7, fontSize: 12, color: '#8FA1AE', textDecoration: 'none', fontFamily: "'Sora',sans-serif" }}>🗺</Link>
+                <span style={{ display: 'flex', alignItems: 'center', padding: '5px 9px', borderRadius: 7, fontSize: 12, fontWeight: 700, color: '#1F2D3D', background: 'white', boxShadow: '0 1px 3px rgba(41,88,107,0.08)', fontFamily: "'Sora',sans-serif" }}>☰</span>
+              </div>
+            </div>
+          </header>
+        )}
+
+        {/* スマホ 検索バー（ヘッダー下スライド展開）*/}
+        {isMobile && mobileSearchOpen && (
+          <div style={{ position: 'sticky', top: 52, zIndex: 29, background: 'white', borderBottom: '1px solid #DCE8EE', padding: '10px 12px', display: 'flex', gap: 8, alignItems: 'center' }}>
+            <div style={{ flex: 1, position: 'relative' }}>
+              <svg style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} width={14} height={14} viewBox="0 0 20 20" fill="none">
+                <circle cx="8.5" cy="8.5" r="5.5" stroke="#8FA1AE" strokeWidth="1.8"/>
+                <path d="M13 13l3.5 3.5" stroke="#8FA1AE" strokeWidth="1.8" strokeLinecap="round"/>
+              </svg>
+              <input autoFocus type="text" placeholder="研究室名・教員名・キーワード..." value={query} onChange={e => setQuery(e.target.value)}
+                style={{ width: '100%', paddingLeft: 32, paddingRight: query ? 32 : 12, paddingTop: 10, paddingBottom: 10, fontSize: 14, borderRadius: 11, border: '1.5px solid #5FAFC6', background: '#F3FBFD', color: '#1F2D3D', outline: 'none', boxSizing: 'border-box', fontFamily: "'Noto Sans JP',sans-serif", boxShadow: '0 0 0 3px rgba(95,175,198,0.12)' }} />
+              {query && <button onClick={() => setQuery('')} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, color: '#8FA1AE', padding: 2 }}>✕</button>}
+            </div>
+            <button onClick={() => { setMobileSearchOpen(false); setQuery('') }}
+              style={{ fontSize: 13, color: '#5B6B79', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600, padding: '8px 0', fontFamily: "'Sora',sans-serif", flexShrink: 0 }}>
+              キャンセル
+            </button>
+          </div>
+        )}
+
+        <div style={{ display: 'flex', flex: 1 }}>
+
+          {/* PC フィルターサイドバー */}
+          {!isMobile && (
+            <aside style={{
+              width: filterOpen ? FILTER_W + 16 : 52, flexShrink: 0,
+              transition: 'width 0.22s ease',
+              position: 'sticky', top: 54, height: 'calc(100vh - 54px)',
+              overflowY: 'auto', display: 'flex', flexDirection: 'column', padding: '10px 0',
+              borderRight: '1px solid #DCE8EE', background: 'white',
+            }}>
+              <div style={{ padding: '0 8px 8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <button onClick={() => setFilterOpen(v => !v)}
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', padding: '4px 6px', borderRadius: 8, color: hasFilter ? '#5FAFC6' : '#5B6B79', fontFamily: "'Sora',sans-serif", fontSize: 12, fontWeight: 700 }}
+                  onMouseEnter={e => (e.currentTarget.style.background = '#F3FBFD')}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'none')}>
+                  <FilterIcon active={hasFilter} />
+                  {filterOpen && <span>絞り込み</span>}
+                  {hasFilter && <span style={{ background: '#5FAFC6', color: 'white', borderRadius: 999, fontSize: 9, padding: '1px 5px', lineHeight: 1.4 }}>{filterCount}</span>}
+                </button>
+                {filterOpen && hasFilter && <span style={{ fontSize: 11, color: '#8FA1AE', paddingRight: 8, fontFamily: "'Noto Sans JP',sans-serif" }}>{sortedLabs.length}件</span>}
+              </div>
+              {filterOpen && (
+                <div style={{ margin: '0 8px', background: 'white', borderRadius: 14, border: '1px solid #DCE8EE', boxShadow: '0 2px 12px rgba(41,88,107,0.07)', overflow: 'hidden', flex: 1 }}>
+                  <div style={{ padding: '8px 8px 0' }}>
+                    <div style={{ display: 'flex', gap: 2, background: '#F3FBFD', borderRadius: 9, padding: 2, border: '1px solid #DCE8EE' }}>
+                      {FILTER_TABS.map(({ mode, label }) => (
+                        <button key={mode} className="filter-tab" onClick={() => switchMode(mode)}
+                          style={{ flex: 1, padding: '5px 4px', borderRadius: 7, fontSize: 11, fontWeight: filterMode === mode ? 700 : 500, background: filterMode === mode ? 'white' : 'transparent', color: filterMode === mode ? '#1F2D3D' : '#8FA1AE', boxShadow: filterMode === mode ? '0 1px 4px rgba(41,88,107,0.08)' : 'none' }}>
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div style={{ width: '100%', height: 1, background: '#DCE8EE', margin: '8px 0 0' }} />
+                  <div style={{ overflowY: 'auto' }}>{renderFilterContent()}</div>
+                  {hasFilter && (
+                    <div style={{ padding: '8px 12px', borderTop: '1px solid #DCE8EE' }}>
+                      <button onClick={clearFilter} style={{ width: '100%', padding: '6px', fontSize: 11, color: '#EF4444', background: 'rgba(239,68,68,0.05)', border: '1px solid rgba(239,68,68,0.18)', borderRadius: 9, cursor: 'pointer', fontFamily: "'Sora',sans-serif" }}>✕ 絞り込み解除</button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </aside>
+          )}
+
+          {/* カードグリッド */}
+          <main style={{ flex: 1, padding: isMobile ? '12px 12px 32px' : '20px 24px 60px', minWidth: 0 }}>
+
+            {/* スマホ用ツールバー（件数・ソート・ピン・フィルター）*/}
+            {isMobile && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+                <span style={{ fontSize: 12, color: '#8FA1AE', fontFamily: "'Noto Sans JP',sans-serif", flex: 1, whiteSpace: 'nowrap' }}>
+                  {sortedLabs.length}件
+                </span>
+                <select value={sortBy} onChange={e => setSortBy(e.target.value as typeof sortBy)}
+                  style={{ padding: '7px 8px', fontSize: 11, borderRadius: 9, border: '1.5px solid #DCE8EE', background: 'white', outline: 'none', fontFamily: "'Sora',sans-serif", color: '#1F2D3D', cursor: 'pointer', flexShrink: 0 }}>
+                  <option value="default">デフォルト</option>
+                  <option value="cluster">クラスタ別</option>
+                  <option value="name">名前順</option>
+                </select>
+                <button onClick={() => setShowPinsOnly(v => !v)}
+                  style={{ display: 'flex', alignItems: 'center', padding: '7px 10px', borderRadius: 9, border: `1px solid ${showPinsOnly ? '#FEF08A' : '#DCE8EE'}`, background: showPinsOnly ? '#FEFCE8' : 'white', color: showPinsOnly ? '#92400E' : '#5B6B79', fontSize: 14, cursor: 'pointer', flexShrink: 0 }}>
+                  {showPinsOnly ? '⭐' : '☆'}
+                </button>
+                <button onClick={() => setMobileFilterOpen(true)}
+                  style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', borderRadius: 9, border: `1.5px solid ${hasFilter ? '#5FAFC6' : '#DCE8EE'}`, background: hasFilter ? 'rgba(95,175,198,0.08)' : 'white', color: hasFilter ? '#5FAFC6' : '#5B6B79', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: "'Sora',sans-serif", flexShrink: 0 }}>
+                  <FilterIcon active={hasFilter} />
+                  絞り込み
+                  {hasFilter && <span style={{ background: '#5FAFC6', color: 'white', borderRadius: 999, fontSize: 9, fontWeight: 700, padding: '1px 4px', lineHeight: 1.4 }}>{filterCount}</span>}
+                </button>
+              </div>
+            )}
+
             {sortedLabs.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '80px 0', color: '#8FA1AE' }}>
                 <div style={{ fontSize: 40, marginBottom: 12 }}>🔍</div>
@@ -429,15 +539,16 @@ export default function CardsPage() {
                 </button>
               </div>
             ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 }}>
+              // PC: 2列 / スマホ: 1列
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)', gap: isMobile ? 12 : 16 }}>
                 {sortedLabs.map((lab, idx) => {
-                  const ci = lab.cluster_id ?? 0
-                  const color     = lab.cluster_id !== null ? C[ci] : '#94A3B8'
-                  const chipBg    = lab.cluster_id !== null ? C_CHIP[ci] : 'rgba(148,163,184,0.12)'
+                  const ci          = lab.cluster_id ?? 0
+                  const color       = lab.cluster_id !== null ? C[ci] : '#94A3B8'
+                  const chipBg      = lab.cluster_id !== null ? C_CHIP[ci] : 'rgba(148,163,184,0.12)'
                   const clusterName = lab.cluster_id !== null ? CLUSTER_NAMES[ci] : '未分類'
-                  const isPinned  = pins.includes(lab.id)
-                  const courseInfo = getLabCourseInfo(lab.id)
-                  const bullets   = parseBullets(lab.summary_bullets)
+                  const isPinned    = pins.includes(lab.id)
+                  const courseInfo  = getLabCourseInfo(lab.id)
+                  const bullets     = parseBullets(lab.summary_bullets)
 
                   return (
                     <div key={lab.id} className="lab-card card-anim"
@@ -445,28 +556,26 @@ export default function CardsPage() {
                         background: 'white', borderRadius: 18,
                         border: `1.5px solid ${isPinned ? color : '#DCE8EE'}`,
                         boxShadow: isPinned ? '0 4px 20px rgba(41,88,107,0.12)' : '0 2px 8px rgba(41,88,107,0.06)',
-                        padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 11,
+                        padding: isMobile ? '16px' : '18px 20px',
+                        display: 'flex', flexDirection: 'column', gap: 11,
                         animationDelay: `${Math.min(idx * 25, 400)}ms`, animationFillMode: 'both',
                       }}>
 
                       {/* カードヘッダー */}
                       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          {/* クラスタバッジ */}
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10, fontWeight: 700, color, background: chipBg, padding: '2px 9px 2px 6px', borderRadius: 999, marginBottom: 6 }}>
                             <span style={{ width: 5, height: 5, borderRadius: '50%', background: color }} />{clusterName}
                           </span>
-                          {/* 研究室名 */}
-                          <h2 style={{ fontSize: 15, fontWeight: 800, margin: '0 0 4px', color: '#1F2D3D', lineHeight: 1.3, letterSpacing: '-0.02em', fontFamily: "'Sora','Noto Sans JP',sans-serif" }}>{lab.name}</h2>
+                          <h2 style={{ fontSize: isMobile ? 16 : 15, fontWeight: 800, margin: '0 0 4px', color: '#1F2D3D', lineHeight: 1.3, letterSpacing: '-0.02em', fontFamily: "'Sora','Noto Sans JP',sans-serif" }}>{lab.name}</h2>
                           {lab.faculty_name && (
                             <p style={{ fontSize: 12, color: '#5B6B79', margin: 0, lineHeight: 1.4, fontFamily: "'Noto Sans JP',sans-serif" }}>
                               <span style={{ color: '#8FA1AE', fontWeight: 700, marginRight: 4 }}>教員</span>{lab.faculty_name}
                             </p>
                           )}
                         </div>
-                        {/* ピンボタン */}
                         <button className="pin-btn" onClick={() => togglePin(lab.id)}
-                          style={{ width: 34, height: 34, borderRadius: 10, background: isPinned ? '#FEFCE8' : '#F3FBFD', border: `1px solid ${isPinned ? '#FEF08A' : '#DCE8EE'}`, fontSize: 16, flexShrink: 0 }}>
+                          style={{ width: isMobile ? 38 : 34, height: isMobile ? 38 : 34, borderRadius: 10, background: isPinned ? '#FEFCE8' : '#F3FBFD', border: `1px solid ${isPinned ? '#FEF08A' : '#DCE8EE'}`, fontSize: isMobile ? 18 : 16, flexShrink: 0 }}>
                           {isPinned ? '⭐' : '☆'}
                         </button>
                       </div>
@@ -489,7 +598,7 @@ export default function CardsPage() {
                         </div>
                       )}
 
-                      {/* 研究内容（箇条書き or サマリー）*/}
+                      {/* 研究内容 */}
                       {bullets.length > 0 ? (
                         <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 5 }}>
                           {bullets.map((b, i) => (
@@ -522,7 +631,7 @@ export default function CardsPage() {
                           🗺 マップで見る
                         </Link>
                         <Link href={`/lab/${lab.id}`}
-                          style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '7px 15px', borderRadius: 10, background: '#5FAFC6', color: 'white', fontSize: 12, fontWeight: 700, textDecoration: 'none', transition: 'all .15s', fontFamily: "'Sora',sans-serif", boxShadow: '0 2px 8px rgba(95,175,198,0.28)' }}
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: isMobile ? '9px 18px' : '7px 15px', borderRadius: 10, background: '#5FAFC6', color: 'white', fontSize: isMobile ? 13 : 12, fontWeight: 700, textDecoration: 'none', transition: 'all .15s', fontFamily: "'Sora',sans-serif", boxShadow: '0 2px 8px rgba(95,175,198,0.28)' }}
                           onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.background = '#3E95AE'; (e.currentTarget as HTMLAnchorElement).style.transform = 'translateY(-1px)' }}
                           onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.background = '#5FAFC6'; (e.currentTarget as HTMLAnchorElement).style.transform = 'translateY(0)' }}>
                           詳細を見る →
@@ -535,6 +644,10 @@ export default function CardsPage() {
             )}
           </main>
         </div>
+
+        {/* スマホ用フィルターシート */}
+        {isMobile && mobileFilterOpen && renderMobileFilterSheet()}
+
       </div>
     </>
   )
