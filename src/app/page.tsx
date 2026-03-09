@@ -539,7 +539,7 @@ export default function LandingPage() {
 
         .proof-number {
           font-family: 'Sora', sans-serif;
-          font-size: clamp(3rem, 8vw, 5.6rem);
+          font-size: clamp(2.2rem, 5vw, 3.8rem);
           line-height: 1;
           font-weight: 800;
           color: var(--brand-dark);
@@ -713,7 +713,7 @@ export default function LandingPage() {
 
         .coverage-number {
           font-family: 'Sora', sans-serif;
-          font-size: clamp(3rem, 7vw, 5.5rem);
+          font-size: clamp(2.2rem, 4.5vw, 3.6rem);
           line-height: 1;
           font-weight: 800;
           color: var(--brand-dark);
