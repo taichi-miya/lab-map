@@ -539,7 +539,7 @@ export default function LandingPage() {
 
         .proof-number {
           font-family: 'Sora', sans-serif;
-          font-size: clamp(2.2rem, 5vw, 3.8rem);
+          font-size: clamp(1.6rem, 3.5vw, 2.6rem);
           line-height: 1;
           font-weight: 800;
           color: var(--brand-dark);
