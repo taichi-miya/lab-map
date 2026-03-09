@@ -862,33 +862,125 @@ export default function LandingPage() {
           }
         }
 
+        /* ────────────────────────────────
+           スマホ対応（720px 以下）
+        ──────────────────────────────── */
         @media (max-width: 720px) {
-          .hero {
-            padding-top: 20px;
+
+          /* コンテナ余白を少し狭く */
+          .container {
+            width: calc(100% - 28px);
           }
 
+          /* セクション縦余白を詰める */
+          .section {
+            padding: 56px 0;
+          }
+
+          /* ── ヒーロー ── */
+          .hero {
+            padding: 16px 0 48px;
+          }
+
+          /* ── ナビ：縦積みで左揃え ── */
           .nav {
             flex-direction: column;
             align-items: flex-start;
-            margin-bottom: 34px;
+            gap: 12px;
+            margin-bottom: 28px;
           }
 
+          .brand-sub {
+            font-size: 0.76rem;
+          }
+
+          /* ナビリンクを横スクロール可能な1行に */
           .nav-links {
-            gap: 14px;
+            display: flex;
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            gap: 8px;
+            padding-bottom: 4px;
+            width: 100%;
+            scrollbar-width: none;
+          }
+          .nav-links::-webkit-scrollbar { display: none; }
+          .nav-links a:not(.btn-primary):not(.btn-secondary):not(.btn-ghost) {
+            font-size: 0.84rem;
+            white-space: nowrap;
+          }
+          .nav-links .btn-secondary {
+            flex-shrink: 0;
+            min-height: 40px;
+            padding: 0 16px;
+            font-size: 0.88rem;
           }
 
-          .problem-grid,
-          .feature-grid,
-          .steps,
-          .usecase-grid,
-          .map-meta {
+          /* ── ヒーローグリッド → 縦積み ── */
+          .hero-grid {
             grid-template-columns: 1fr;
+            gap: 24px;
           }
 
-          .section {
-            padding: 72px 0;
+          /* ── h1 ── */
+          h1 {
+            font-size: clamp(1.8rem, 8vw, 2.6rem);
+            margin-bottom: 16px;
+            line-height: 1.1;
           }
 
+          /* ── ヒーローコピー ── */
+          .hero-copy {
+            font-size: 0.96rem;
+            line-height: 1.85;
+            margin-bottom: 20px;
+          }
+
+          /* ── バッジ ── */
+          .badge {
+            font-size: 0.8rem;
+            padding: 8px 12px;
+            margin-bottom: 16px;
+          }
+
+          /* ── CTAボタン行：縦積み全幅 ── */
+          .cta-row {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 10px;
+            margin-bottom: 14px;
+          }
+
+          .btn-primary,
+          .btn-secondary,
+          .btn-ghost {
+            width: 100%;
+            min-height: 52px;
+            font-size: 0.96rem;
+          }
+
+          /* ── ヒーローノート ── */
+          .hero-note {
+            gap: 8px;
+            font-size: 0.82rem;
+          }
+
+          /* ── ミニパネル ── */
+          .mini-panel {
+            padding: 18px 16px;
+          }
+
+          .mini-row {
+            grid-template-columns: 1fr;
+            gap: 6px;
+          }
+
+          .mini-label {
+            width: fit-content;
+          }
+
+          /* ── カード類：左右余白を詰める ── */
           .hero-card,
           .problem-card,
           .feature-card,
@@ -899,35 +991,125 @@ export default function LandingPage() {
           .developer-card,
           .final-panel,
           .solution-band {
-            padding-left: 20px;
-            padding-right: 20px;
+            padding-left: 18px;
+            padding-right: 18px;
           }
 
-          .developer-card {
-            padding-top: 24px;
-            padding-bottom: 24px;
-          }
-
-          h1 {
-            font-size: 2.5rem;
-          }
-
-          .hero-copy {
-            font-size: 1rem;
-          }
-
-          .mini-row {
+          /* ── グリッド → 1列 ── */
+          .problem-grid,
+          .feature-grid,
+          .steps,
+          .usecase-grid,
+          .map-meta {
             grid-template-columns: 1fr;
           }
 
-          .cta-row {
-            align-items: stretch;
+          /* ── セクション見出し ── */
+          .section-title {
+            font-size: clamp(1.5rem, 6vw, 2.2rem);
+            letter-spacing: -0.03em;
           }
 
-          .btn-primary,
-          .btn-secondary,
-          .btn-ghost {
-            width: 100%;
+          .section-sub {
+            font-size: 0.93rem;
+            line-height: 1.8;
+          }
+
+          /* ── proof グリッド → 1列 ── */
+          .proof-grid {
+            grid-template-columns: 1fr;
+          }
+
+          .proof-stat {
+            padding: 28px 18px;
+          }
+
+          /* ── solution バンド → 縦積み ── */
+          .solution-band {
+            grid-template-columns: 1fr;
+            padding: 22px 18px;
+          }
+
+          .solution-visual {
+            min-height: 220px;
+          }
+
+          .solution-copy h3 {
+            font-size: clamp(1.3rem, 5vw, 1.8rem);
+          }
+
+          /* ── developer カード → 縦積み・写真小さく ── */
+          .developer-card {
+            grid-template-columns: 1fr;
+            padding: 22px 18px;
+            gap: 20px;
+          }
+
+          .developer-photo {
+            max-width: 160px;
+            margin: 0 auto;
+          }
+
+          .developer-copy h3 {
+            font-size: 1.4rem;
+          }
+
+          /* ── coverage ── */
+          .coverage-box {
+            padding: 28px 18px;
+          }
+
+          .roadmap {
+            flex-direction: column;
+            gap: 6px;
+            align-items: center;
+          }
+
+          .roadmap .arrow {
+            transform: rotate(90deg);
+            padding: 0;
+          }
+
+          /* ── final CTA ── */
+          .final-panel {
+            padding: 36px 18px;
+          }
+
+          .final-panel h2 {
+            font-size: clamp(1.4rem, 6vw, 2rem);
+            letter-spacing: -0.02em;
+          }
+
+          .final-panel p {
+            font-size: 0.93rem;
+          }
+
+          /* ── map toolbar・meta ── */
+          .map-toolbar {
+            height: 44px;
+            padding: 0 14px;
+          }
+
+          /* ── step-card 縦余白調整 ── */
+          .step-card {
+            padding: 22px 18px;
+          }
+        }
+
+        /* ────────────────────────────────
+           極小スマホ（400px 以下）
+        ──────────────────────────────── */
+        @media (max-width: 400px) {
+          h1 {
+            font-size: 1.7rem;
+          }
+
+          .badge {
+            font-size: 0.73rem;
+          }
+
+          .section-title {
+            font-size: 1.4rem;
           }
         }
       `}</style>
