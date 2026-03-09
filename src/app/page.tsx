@@ -184,7 +184,7 @@ export default function LandingPage() {
 
         h1 {
           font-family: 'Sora', sans-serif;
-          font-size: clamp(2.8rem, 6vw, 5.15rem);
+          font-size: clamp(1.6rem, 3.5vw, 2.6rem);
           line-height: 1.02;
           letter-spacing: -0.045em;
           margin: 0 0 22px;
