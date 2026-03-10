@@ -71,44 +71,86 @@ export default async function LabDetail({ params }: { params: Promise<{ id: stri
     <>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Noto+Sans+JP:wght@400;500;700&display=swap');
-        * { box-sizing: border-box; }
+        *, *::before, *::after { box-sizing: border-box; }
         body { margin: 0; background: #F3FBFD; }
-        .back-link:hover { color: #3E95AE !important; }
-        .neighbor-card { transition: border-color .18s, box-shadow .18s, transform .18s; }
-        .neighbor-card:hover { transform: translateY(-1px); }
-        .lab-url-btn:hover { background: #F3FBFD !important; border-color: #5FAFC6 !important; color: #3E95AE !important; }
+
+        /* ホバー効果をすべてCSS側で定義（onMouseEnter/Leave不要）*/
+        .back-link:hover    { color: #3E95AE !important; border-color: #5FAFC6 !important; }
+        .lab-url-btn:hover  { background: #F3FBFD !important; border-color: #5FAFC6 !important; color: #3E95AE !important; }
+        .neighbor-card      { transition: border-color .18s, box-shadow .18s, transform .18s; }
+        .neighbor-card:hover { transform: translateY(-1px); border-color: #5FAFC6 !important; box-shadow: 0 4px 16px rgba(41,88,107,0.10) !important; }
+        .correction-btn:hover { background: rgba(95,175,198,0.12) !important; border-color: #5FAFC6 !important; }
+
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-thumb { background: rgba(95,175,198,0.3); border-radius: 99px; }
-        .header-back-icon { display: none; }
+
+        /* ────────────────────────────
+           スマホ対応（600px以下）
+        ──────────────────────────── */
         @media (max-width: 600px) {
-          .header-back-text { display: none !important; }
-          .header-back-icon { display: inline-flex !important; }
-          .main-card { padding: 20px 16px !important; }
-          .lab-name { font-size: 20px !important; }
-          .staff-row { flex-direction: column !important; align-items: flex-start !important; gap: 4px !important; }
-          .sns-label { display: none !important; }
+          /* ヘッダー */
+          .hd-back-full { display: none !important; }
+          .hd-back-short { display: inline-flex !important; }
+
+          /* メインカード */
+          .main-card { padding: 18px 14px !important; border-radius: 18px !important; }
+
+          /* 研究室名 */
+          .lab-h1 { font-size: 20px !important; margin-bottom: 14px !important; }
+
+          /* STAFFカード：横並び→縦積み */
+          .staff-row {
+            flex-direction: column !important;
+            align-items: flex-start !important;
+            gap: 4px !important;
+          }
+
+          /* リンク行：縦積み */
           .link-row { flex-direction: column !important; align-items: flex-start !important; }
-          .neighbor-inner { flex-wrap: wrap !important; }
+
+          /* SNS「近日公開予定」文字を非表示 */
+          .sns-label { display: none !important; }
+
+          /* 近い研究室カード：名前が長くても崩れないよう折り返し許可 */
+          .neighbor-card { flex-wrap: wrap !important; row-gap: 6px !important; }
           .neighbor-badge { margin-left: auto !important; }
-          .meta-info { word-break: break-all !important; white-space: normal !important; font-size: 10px !important; }
-          .correction-footer { flex-direction: column !important; align-items: flex-start !important; }
+
+          /* 情報修正フッター：縦積み */
+          .fix-footer { flex-direction: column !important; align-items: flex-start !important; }
+
+          /* メタ情報：折り返し */
+          .meta-text { word-break: break-all !important; white-space: normal !important; }
         }
       `}</style>
 
       {/* ── ヘッダー ── */}
       <header style={{
         position: 'sticky', top: 0, zIndex: 30,
-        background: 'rgba(255,255,255,0.94)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
+        background: 'rgba(255,255,255,0.94)',
+        backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
         borderBottom: '1px solid #DCE8EE',
         padding: '0 16px', height: 54,
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
       }}>
         {/* ロゴ */}
-        <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none', minWidth: 0, flex: 1 }}>
-          <div style={{ width: 30, height: 30, borderRadius: 9, background: 'linear-gradient(135deg,#5FAFC6 0%,#8FD3E0 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontFamily: "'Sora',sans-serif", fontWeight: 800, fontSize: 13, boxShadow: '0 3px 10px rgba(95,175,198,0.3)', flexShrink: 0 }}>L</div>
-          <span style={{ fontFamily: "'Sora',sans-serif", fontWeight: 800, fontSize: 14, color: '#1F2D3D', letterSpacing: '-0.02em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Labo Navi</span>
+        <Link href="/" style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          textDecoration: 'none', flexShrink: 0,
+        }}>
+          <div style={{
+            width: 30, height: 30, borderRadius: 9, flexShrink: 0,
+            background: 'linear-gradient(135deg,#5FAFC6 0%,#8FD3E0 100%)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: 'white', fontFamily: "'Sora',sans-serif", fontWeight: 800, fontSize: 13,
+            boxShadow: '0 3px 10px rgba(95,175,198,0.3)',
+          }}>L</div>
+          <span style={{
+            fontFamily: "'Sora',sans-serif", fontWeight: 800, fontSize: 14,
+            color: '#1F2D3D', letterSpacing: '-0.02em',
+          }}>Labo Navi</span>
         </Link>
-        {/* 戻るリンク */}
+
+        {/* 戻るリンク：PCはテキスト付き、スマホはアイコンのみ */}
         <Link href="/map" className="back-link" style={{
           fontSize: 13, color: '#8FA1AE', textDecoration: 'none',
           display: 'inline-flex', alignItems: 'center', gap: 5,
@@ -117,15 +159,18 @@ export default async function LabDetail({ params }: { params: Promise<{ id: stri
           border: '1px solid #DCE8EE', background: 'white',
           transition: 'color .15s, border-color .15s',
         }}>
-          <span className="header-back-text">← マップに戻る</span>
-          <span className="header-back-icon" style={{ display: 'none', alignItems: 'center', gap: 4 }}>← 戻る</span>
+          {/* PC表示 */}
+          <span className="hd-back-full">← マップに戻る</span>
+          {/* スマホ表示（CSS でデフォルト非表示、600px以下で表示）*/}
+          <span className="hd-back-short" style={{ display: 'none', alignItems: 'center', gap: 4 }}>
+            ← 戻る
+          </span>
         </Link>
       </header>
 
       <main style={{
-        maxWidth: 700, margin: '0 auto', padding: '32px 20px 72px',
-        fontFamily: "'Noto Sans JP',sans-serif",
-        color: '#1F2D3D',
+        maxWidth: 700, margin: '0 auto', padding: '24px 16px 72px',
+        fontFamily: "'Noto Sans JP',sans-serif", color: '#1F2D3D',
       }}>
 
         {/* ── メインカード ── */}
@@ -133,9 +178,10 @@ export default async function LabDetail({ params }: { params: Promise<{ id: stri
           background: 'white', borderRadius: 24,
           border: `1.5px solid ${strokeColor}`,
           boxShadow: '0 4px 24px rgba(41,88,107,0.09)',
-          padding: '28px 32px',
+          padding: '28px 28px',
           marginBottom: 24,
         }}>
+
           {/* クラスタバッジ＋ピンボタン */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
             <span style={{
@@ -151,9 +197,9 @@ export default async function LabDetail({ params }: { params: Promise<{ id: stri
           </div>
 
           {/* 研究室名 */}
-          <h1 className="lab-name" style={{
+          <h1 className="lab-h1" style={{
             fontSize: 26, fontWeight: 800, margin: '0 0 20px',
-            letterSpacing: '-0.03em', lineHeight: 1.2,
+            letterSpacing: '-0.03em', lineHeight: 1.25,
             fontFamily: "'Sora','Noto Sans JP',sans-serif", color: '#1F2D3D',
           }}>
             {lab.name}
@@ -162,19 +208,23 @@ export default async function LabDetail({ params }: { params: Promise<{ id: stri
           {/* ── STAFF ── */}
           {memberNames.length > 0 && (
             <div style={{ marginBottom: 22 }}>
-              <p style={{ fontSize: 11, fontWeight: 700, color: '#8FA1AE', marginBottom: 8, letterSpacing: '0.08em', fontFamily: "'Sora',sans-serif" }}>
-                STAFF
-              </p>
+              <p style={{
+                fontSize: 11, fontWeight: 700, color: '#8FA1AE',
+                marginBottom: 8, letterSpacing: '0.08em', fontFamily: "'Sora',sans-serif",
+              }}>STAFF</p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
                 {memberNames.map((name, i) => (
-                  <div key={i} style={{
+                  <div key={i} className="staff-row" style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                     padding: '9px 14px', borderRadius: 11,
-                    background: '#F3FBFD', border: '1px solid #DCE8EE',
-                  }} className="staff-row">
-                    <span style={{ fontSize: 14, fontWeight: 600, color: '#1F2D3D', fontFamily: "'Noto Sans JP',sans-serif" }}>{name}</span>
+                    background: '#F3FBFD', border: '1px solid #DCE8EE', gap: 8,
+                  }}>
                     <span style={{
-                      fontSize: 11, color: '#8FA1AE',
+                      fontSize: 14, fontWeight: 600, color: '#1F2D3D',
+                      fontFamily: "'Noto Sans JP',sans-serif",
+                    }}>{name}</span>
+                    <span style={{
+                      fontSize: 11, color: '#8FA1AE', flexShrink: 0,
                       display: 'inline-flex', alignItems: 'center', gap: 4,
                       fontFamily: "'Noto Sans JP',sans-serif",
                     }}>
@@ -188,17 +238,26 @@ export default async function LabDetail({ params }: { params: Promise<{ id: stri
           )}
 
           {/* ── リンク行：研究室HP ＋ SNS ── */}
-          <div className="link-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 22, flexWrap: 'wrap', gap: 8 }}>
+          <div className="link-row" style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            marginBottom: 22, flexWrap: 'wrap', gap: 8,
+          }}>
             {lab.lab_url && (
-              <a href={lab.lab_url} target="_blank" rel="noopener noreferrer" className="lab-url-btn" style={{
-                display: 'inline-flex', alignItems: 'center', gap: 5,
-                fontSize: 13, color: '#5FAFC6', textDecoration: 'none', fontWeight: 600,
-                padding: '7px 14px', borderRadius: 10,
-                border: '1.5px solid rgba(95,175,198,0.35)',
-                background: 'rgba(95,175,198,0.05)',
-                fontFamily: "'Sora',sans-serif",
-                transition: 'all .15s',
-              }}>
+              <a
+                href={lab.lab_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="lab-url-btn"
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 5,
+                  fontSize: 13, color: '#5FAFC6', textDecoration: 'none', fontWeight: 600,
+                  padding: '7px 14px', borderRadius: 10,
+                  border: '1.5px solid rgba(95,175,198,0.35)',
+                  background: 'rgba(95,175,198,0.05)',
+                  fontFamily: "'Sora',sans-serif",
+                  transition: 'all .15s',
+                }}
+              >
                 🔗 研究室HP →
               </a>
             )}
@@ -217,16 +276,20 @@ export default async function LabDetail({ params }: { params: Promise<{ id: stri
                   opacity: 0.5, cursor: 'default',
                 }}>{icon}</div>
               ))}
-              <span className="sns-label" style={{ fontSize: 11, color: '#8FA1AE', marginLeft: 2, fontFamily: "'Noto Sans JP',sans-serif" }}>近日公開予定</span>
+              <span className="sns-label" style={{
+                fontSize: 11, color: '#8FA1AE', marginLeft: 2,
+                fontFamily: "'Noto Sans JP',sans-serif",
+              }}>近日公開予定</span>
             </div>
           </div>
 
           {/* ── TAGS ── */}
           {lab.lab_tags?.length > 0 && (
             <div style={{ marginBottom: 22 }}>
-              <p style={{ fontSize: 11, fontWeight: 700, color: '#8FA1AE', marginBottom: 8, letterSpacing: '0.08em', fontFamily: "'Sora',sans-serif" }}>
-                TAGS
-              </p>
+              <p style={{
+                fontSize: 11, fontWeight: 700, color: '#8FA1AE',
+                marginBottom: 8, letterSpacing: '0.08em', fontFamily: "'Sora',sans-serif",
+              }}>TAGS</p>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                 {lab.lab_tags.map((t: { tag: string }, i: number) => (
                   <span key={i} style={{
@@ -242,9 +305,10 @@ export default async function LabDetail({ params }: { params: Promise<{ id: stri
 
           {/* ── 研究概要 ── */}
           <div style={{ borderTop: '1px solid #DCE8EE', paddingTop: 22 }}>
-            <p style={{ fontSize: 11, fontWeight: 700, color: '#8FA1AE', marginBottom: 12, letterSpacing: '0.08em', fontFamily: "'Sora',sans-serif" }}>
-              研究概要
-            </p>
+            <p style={{
+              fontSize: 11, fontWeight: 700, color: '#8FA1AE',
+              marginBottom: 12, letterSpacing: '0.08em', fontFamily: "'Sora',sans-serif",
+            }}>研究概要</p>
 
             {/* 箇条書き */}
             {bullets.length > 0 && (
@@ -261,22 +325,35 @@ export default async function LabDetail({ params }: { params: Promise<{ id: stri
                       width: 6, height: 6, borderRadius: '50%',
                       background: clusterColor, flexShrink: 0, marginTop: 7,
                     }} />
-                    <p style={{ fontSize: 13, lineHeight: 1.75, color: '#1F2D3D', margin: 0, fontFamily: "'Noto Sans JP',sans-serif" }}>{b}</p>
+                    <p style={{
+                      fontSize: 13, lineHeight: 1.75, color: '#1F2D3D',
+                      margin: 0, fontFamily: "'Noto Sans JP',sans-serif",
+                    }}>{b}</p>
                   </div>
                 ))}
               </div>
             )}
 
             {/* 概要文 */}
-            <p style={{ fontSize: 14, lineHeight: 1.9, color: '#5B6B79', whiteSpace: 'pre-wrap', margin: 0, fontFamily: "'Noto Sans JP',sans-serif" }}>
+            <p style={{
+              fontSize: 14, lineHeight: 1.9, color: '#5B6B79',
+              whiteSpace: 'pre-wrap', margin: 0,
+              fontFamily: "'Noto Sans JP',sans-serif",
+            }}>
               {lab.summary_long ?? lab.summary_text ?? '（未取得）'}
             </p>
 
             {lab.summary_source_url && (
-              <a href={lab.summary_source_url_override ?? lab.summary_source_url} target="_blank" rel="noopener noreferrer" style={{
-                fontSize: 11, color: '#8FA1AE', textDecoration: 'underline', marginTop: 12, display: 'inline-block',
-                fontFamily: "'Noto Sans JP',sans-serif",
-              }}>
+              <a
+                href={lab.summary_source_url_override ?? lab.summary_source_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  fontSize: 11, color: '#8FA1AE', textDecoration: 'underline',
+                  marginTop: 12, display: 'inline-block',
+                  fontFamily: "'Noto Sans JP',sans-serif",
+                }}
+              >
                 出典を見る →
               </a>
             )}
@@ -286,7 +363,10 @@ export default async function LabDetail({ params }: { params: Promise<{ id: stri
         {/* ── 近い研究室 Top5 ── */}
         {neighbors.length > 0 && (
           <div style={{ marginBottom: 24 }}>
-            <p style={{ fontSize: 13, fontWeight: 700, color: '#5B6B79', marginBottom: 12, fontFamily: "'Sora',sans-serif" }}>
+            <p style={{
+              fontSize: 13, fontWeight: 700, color: '#5B6B79',
+              marginBottom: 12, fontFamily: "'Sora',sans-serif",
+            }}>
               近い研究室 Top{neighbors.length}
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -298,19 +378,11 @@ export default async function LabDetail({ params }: { params: Promise<{ id: stri
                     href={`/lab/${n.id}`}
                     className="neighbor-card"
                     style={{
-                      display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
+                      display: 'flex', alignItems: 'center', gap: 12,
                       padding: '13px 16px', borderRadius: 14,
-                      background: 'white', border: `1px solid #DCE8EE`,
+                      background: 'white', border: '1px solid #DCE8EE',
                       textDecoration: 'none', color: 'inherit',
                       boxShadow: '0 2px 8px rgba(41,88,107,0.05)',
-                    }}
-                    onMouseEnter={e => {
-                      e.currentTarget.style.borderColor = nc
-                      e.currentTarget.style.boxShadow = `0 4px 16px rgba(41,88,107,0.10)`
-                    }}
-                    onMouseLeave={e => {
-                      e.currentTarget.style.borderColor = '#DCE8EE'
-                      e.currentTarget.style.boxShadow = '0 2px 8px rgba(41,88,107,0.05)'
                     }}
                   >
                     {/* 順位 */}
@@ -326,10 +398,18 @@ export default async function LabDetail({ params }: { params: Promise<{ id: stri
                     }} />
                     {/* 研究室名・教員 */}
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ fontSize: 14, fontWeight: 700, margin: '0 0 2px', color: '#1F2D3D', fontFamily: "'Noto Sans JP',sans-serif" }}>
+                      <p style={{
+                        fontSize: 14, fontWeight: 700, margin: '0 0 2px',
+                        color: '#1F2D3D', fontFamily: "'Noto Sans JP',sans-serif",
+                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                      }}>
                         {n.lab!.name}
                       </p>
-                      <p style={{ fontSize: 12, color: '#8FA1AE', margin: 0, fontFamily: "'Noto Sans JP',sans-serif" }}>
+                      <p style={{
+                        fontSize: 12, color: '#8FA1AE', margin: 0,
+                        fontFamily: "'Noto Sans JP',sans-serif",
+                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                      }}>
                         {n.lab!.faculty_name}
                       </p>
                     </div>
@@ -350,33 +430,41 @@ export default async function LabDetail({ params }: { params: Promise<{ id: stri
         )}
 
         {/* ── 情報修正依頼フッター ── */}
-        <div className="correction-footer" style={{
+        <div className="fix-footer" style={{
           marginTop: 8, padding: '14px 20px', borderRadius: 14,
           background: '#F3FBFD', border: '1px solid #DCE8EE',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           flexWrap: 'wrap', gap: 8,
         }}>
-          <p style={{ fontSize: 12, color: '#5B6B79', margin: 0, lineHeight: 1.5, fontFamily: "'Noto Sans JP',sans-serif" }}>
+          <p style={{
+            fontSize: 12, color: '#5B6B79', margin: 0,
+            lineHeight: 1.5, fontFamily: "'Noto Sans JP',sans-serif",
+          }}>
             情報に誤りや変更がありますか？
           </p>
-          <Link href={contactUrl} style={{
-            fontSize: 12, color: '#5FAFC6', textDecoration: 'none', fontWeight: 700,
-            display: 'inline-flex', alignItems: 'center', gap: 4,
-            padding: '6px 13px', borderRadius: 9,
-            border: '1.5px solid rgba(95,175,198,0.3)',
-            background: 'rgba(95,175,198,0.06)',
-            fontFamily: "'Sora',sans-serif",
-            transition: 'all .15s',
-          }}
-            onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.background = 'rgba(95,175,198,0.12)'; (e.currentTarget as HTMLAnchorElement).style.borderColor = '#5FAFC6' }}
-            onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.background = 'rgba(95,175,198,0.06)'; (e.currentTarget as HTMLAnchorElement).style.borderColor = 'rgba(95,175,198,0.3)' }}
+          <Link
+            href={contactUrl}
+            className="correction-btn"
+            style={{
+              fontSize: 12, color: '#5FAFC6', textDecoration: 'none', fontWeight: 700,
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+              padding: '6px 13px', borderRadius: 9,
+              border: '1.5px solid rgba(95,175,198,0.3)',
+              background: 'rgba(95,175,198,0.06)',
+              fontFamily: "'Sora',sans-serif",
+              transition: 'all .15s',
+            }}
           >
             ✏️ 情報修正を依頼する
           </Link>
         </div>
 
         {/* メタ情報 */}
-        <p className="meta-info" style={{ fontSize: 11, color: '#DCE8EE', marginTop: 16, fontFamily: "'Noto Sans JP',sans-serif", wordBreak: 'break-all' }}>
+        <p className="meta-text" style={{
+          fontSize: 11, color: '#DCE8EE', marginTop: 16,
+          fontFamily: "'Noto Sans JP',sans-serif",
+          wordBreak: 'break-all',
+        }}>
           取得元: {lab.summary_source_url ?? '未設定'} ／ 最終取得: {lab.fetched_at?.slice(0, 10) ?? '未取得'}
         </p>
       </main>
