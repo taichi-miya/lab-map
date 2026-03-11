@@ -126,7 +126,7 @@ function ContactForm() {
           ご報告ありがとうございます。<br />内容を確認のうえ、順次対応いたします。
         </p>
         <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
-          <Link href="/" style={{
+          <Link href="/map" style={{
             display: 'inline-block', padding: '10px 20px', borderRadius: 10,
             background: '#3B82F6', color: 'white', textDecoration: 'none',
             fontSize: 14, fontWeight: 600,
@@ -318,7 +318,7 @@ export default function ContactPage() {
       fontFamily: "'Hiragino Kaku Gothic ProN','Hiragino Sans','Noto Sans JP',sans-serif",
       color: '#1F2937',
     }}>
-      <Link href="/" style={{
+      <Link href="/map" style={{
         fontSize: 13, color: '#6B7280', textDecoration: 'none',
         display: 'inline-flex', alignItems: 'center', gap: 4, marginBottom: 24,
       }}>
