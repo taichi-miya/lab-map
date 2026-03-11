@@ -78,13 +78,16 @@ function ContactForm() {
     setError('')
     setSubmitting(true)
 
+    // ★ correction以外は研究室・修正項目をnullにする
+    const isCorrection = inquiryType === 'correction'
+
     // Supabaseに保存
     try {
       await supabase.from('reports').insert({
         type: inquiryType,
-        lab_id: selectedLabId || null,
-        lab_name: selectedLabName || null,
-        correction_field: correctionField || null,
+        lab_id: isCorrection ? (selectedLabId || null) : null,
+        lab_name: isCorrection ? (selectedLabName || null) : null,
+        correction_field: isCorrection ? (correctionField || null) : null,
         body: body.trim(),
         email: email.trim() || null,
         created_at: new Date().toISOString(),
@@ -100,8 +103,8 @@ function ContactForm() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type: inquiryType,
-          lab_name: selectedLabName || null,
-          correction_field: correctionField || null,
+          lab_name: isCorrection ? (selectedLabName || null) : null,
+          correction_field: isCorrection ? (correctionField || null) : null,
           body: body.trim(),
           email: email.trim() || null,
         }),
