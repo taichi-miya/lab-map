@@ -14,7 +14,14 @@ type Lab = {
   cluster_id: number | null
   dept: string | null
   summary_text: string | null
+  summary_quality: string | null
   tags: string[]
+}
+
+type ClusterLabel = {
+  cluster_id: number
+  label: string
+  description: string
 }
 
 type Suggestion = {
@@ -46,20 +53,6 @@ const C_FILL   = ['rgba(95,175,198,0.09)','rgba(34,197,94,0.09)','rgba(245,158,1
 const C_STROKE = ['rgba(95,175,198,0.32)','rgba(34,197,94,0.32)','rgba(245,158,11,0.32)','rgba(239,68,68,0.32)','rgba(139,92,246,0.32)','rgba(236,72,153,0.32)','rgba(20,184,166,0.32)','rgba(249,115,22,0.32)','rgba(14,165,233,0.32)','rgba(168,85,247,0.32)']
 const C_CHIP   = ['rgba(95,175,198,0.12)','rgba(34,197,94,0.12)','rgba(245,158,11,0.12)','rgba(239,68,68,0.12)','rgba(139,92,246,0.12)','rgba(236,72,153,0.12)','rgba(20,184,166,0.12)','rgba(249,115,22,0.12)','rgba(14,165,233,0.12)','rgba(168,85,247,0.12)']
 const C_CHIP_H = ['rgba(95,175,198,0.22)','rgba(34,197,94,0.22)','rgba(245,158,11,0.22)','rgba(239,68,68,0.22)','rgba(139,92,246,0.22)','rgba(236,72,153,0.22)','rgba(20,184,166,0.22)','rgba(249,115,22,0.22)','rgba(14,165,233,0.22)','rgba(168,85,247,0.22)']
-
-const CLUSTER_NAMES = ['情報・社会システム','材料プロセス・金属','流体・航空宇宙・計算力学','環境・土木・化学プロセス','ナノ材料・機能デバイス','エネルギーデバイス・ナノ化学','ロボット・医工学・バイオ','計測・イメージング・量子ビーム','通信・光・電子デバイス','原子力・核融合・プラズマ']
-const CLUSTER_DESC = [
-  '交通・都市計画・社会システム設計から、量子デバイス・スピン材料・通信技術まで、社会基盤と先端情報技術を横断する研究室群。',
-  '金属・合金・セラミックスのプロセス設計・組織制御から、生体材料・環境適合材料の開発まで取り組む研究室群。',
-  '流体力学・熱流体・燃焼から、航空宇宙推進・空力設計・数値計算力学まで幅広く取り組む研究室群。',
-  '津波・地震・地盤工学などの防災技術から、水環境・廃水処理・化学反応プロセスまで取り組む研究室群。',
-  'ナノスケールの材料計測・磁性材料・電子デバイス材料の機能設計と評価を行う研究室群。',
-  '蓄電池・スピントロニクス・ナノ化学材料など、次世代エネルギーデバイスの創製に取り組む研究室群。',
-  'ロボティクス・医療機器・バイオデバイスの開発から、生体機能の計測・神経工学まで取り組む研究室群。',
-  '放射線・量子ビームを用いた医用イメージング・がん治療技術と、光通信・信号計測技術を研究する研究室群。',
-  '光通信・フォトニクス・無線通信・電子デバイスなど、情報通信を支えるハードウェア技術を研究する研究室群。',
-  '核融合・プラズマ制御・原子炉安全から、核燃料・放射線工学まで、原子力エネルギーの全領域を研究する研究室群。',
-]
 
 const FILTER_W = 228
 const FILTER_BTN_W = 52
@@ -121,7 +114,9 @@ export default function ExplorePage() {
   const { isSignedIn } = useUser()
   const { pins, togglePin, clearPins } = usePins()
   const [labs, setLabs] = useState<Lab[]>([])
+  const [clusterLabels, setClusterLabels] = useState<ClusterLabel[]>([])
   const [preview, setPreview] = useState<{ lab: Lab; pinned: boolean } | null>(null)
+  const [noDataModal, setNoDataModal] = useState<Lab | null>(null)
   const [query, setQuery] = useState('')
   const [activeCluster, setActiveCluster] = useState<number | null>(null)
   const [chipHover, setChipHover] = useState<number | null>(null)
@@ -191,6 +186,13 @@ export default function ExplorePage() {
   const cardRight = legendRightOffset + ZOOM_CTRL_W + 8
   const zoomBottom = (cardVisible && cardRight <= ZOOM_RIGHT_EDGE + 8) ? BOTTOM_PAD + CARD_H_EST + 12 : BOTTOM_PAD
 
+  // ── クラスタラベル取得ヘルパー ──
+  const getClusterLabel = (cid: number | null) =>
+    cid !== null ? (clusterLabels.find(l => l.cluster_id === cid)?.label ?? `クラスタ${cid}`) : '未分類'
+
+  const getClusterDesc = (cid: number | null) =>
+    cid !== null ? (clusterLabels.find(l => l.cluster_id === cid)?.description ?? '') : ''
+
   useEffect(() => {
     const check = () => {
       const mobile = window.innerWidth < 640
@@ -219,13 +221,15 @@ export default function ExplorePage() {
 
   useEffect(() => {
     ;(async () => {
-      const { data: labData } = await supabase.from('labs').select('id,name,faculty_name,map_x,map_y,cluster_id,dept,summary_text')
+      const { data: labData } = await supabase.from('labs').select('id,name,faculty_name,map_x,map_y,cluster_id,dept,summary_text,summary_quality')
       const { data: tagData } = await supabase.from('lab_tags').select('lab_id,tag').limit(10000)
       const { data: courseData } = await supabase.from('lab_courses').select('lab_id,undergraduate_dept,course')
+      const { data: labelData } = await supabase.from('cluster_labels').select('cluster_id,label,description')
       const tagMap: Record<string, string[]> = {}
       for (const t of tagData ?? []) { if (!tagMap[t.lab_id]) tagMap[t.lab_id] = []; tagMap[t.lab_id].push(t.tag) }
       setLabs((labData ?? []).map(l => ({ ...l, tags: tagMap[l.id] ?? [] })))
       setLabCourses(courseData ?? [])
+      setClusterLabels(labelData ?? [])
       setLoading(false)
     })()
   }, [])
@@ -321,6 +325,14 @@ export default function ExplorePage() {
 
   const placed = labs.map((lab, i) => {
     const anim = animCoords[lab.id]
+    if (lab.summary_quality === 'C') {
+      return {
+        ...lab,
+        cluster_id: anim ? anim.cluster_id : lab.cluster_id,
+        x: TOTAL_W / 2,
+        y: TOTAL_H / 2,
+      }
+    }
     return {
       ...lab,
       cluster_id: anim ? anim.cluster_id : lab.cluster_id,
@@ -350,7 +362,15 @@ export default function ExplorePage() {
     if (isMobile) { setMobileSearchOpen(false) }
     if (s.type === 'lab' || s.type === 'faculty') {
       const lab = placed.find(p => p.id === s.labId)
-      if (lab) { const { zoom: z, offset: o } = calcFocusTransform(lab.x, lab.y, 2, svgW, svgH); setZoom(z); setOffset(o); setFocusedLabId(lab.id); setPreview({ lab, pinned: true }); setQuery(s.label) }
+      if (!lab) return
+      if (lab.summary_quality === 'C') {
+        setNoDataModal(lab)
+        setPreview({ lab, pinned: true })
+        setQuery(s.label)
+        return
+      }
+      const { zoom: z, offset: o } = calcFocusTransform(lab.x, lab.y, 2, svgW, svgH)
+      setZoom(z); setOffset(o); setFocusedLabId(lab.id); setPreview({ lab, pinned: true }); setQuery(s.label)
     } else if (s.type === 'tag') { setQuery(s.label); setFocusedLabId(null) }
   }, [placed, svgW, svgH, isMobile])
 
@@ -412,12 +432,15 @@ export default function ExplorePage() {
     return { depts: [...new Set(entries.map(c => c.undergraduate_dept))], courses: [...new Set(entries.map(c => c.course))] }
   }
 
-  const clusterEllipses = CLUSTER_NAMES.map((_, ci) => {
-    const pts = placed.filter(l => l.cluster_id === ci)
+  // クラスタIDの一覧をDBデータから動的に取得
+  const clusterIds = [...new Set(placed.filter(l => l.summary_quality !== 'C').map(l => l.cluster_id).filter(id => id !== null))] as number[]
+
+  const clusterEllipses = clusterIds.map(ci => {
+    const pts = placed.filter(l => l.summary_quality !== 'C' && l.cluster_id === ci)
     if (pts.length < 2) return null
     const xs = pts.map(p => p.x), ys = pts.map(p => p.y)
     const cx = (Math.min(...xs) + Math.max(...xs)) / 2, cy = (Math.min(...ys) + Math.max(...ys)) / 2
-    return { cx, cy, rx: (Math.max(...xs) - Math.min(...xs)) / 2 + 80, ry: (Math.max(...ys) - Math.min(...ys)) / 2 + 80 }
+    return { ci, cx, cy, rx: (Math.max(...xs) - Math.min(...xs)) / 2 + 80, ry: (Math.max(...ys) - Math.min(...ys)) / 2 + 80 }
   })
 
   const applyZoom = (newZoom: number) => {
@@ -454,7 +477,6 @@ export default function ExplorePage() {
   const handleTouchStart = useCallback((e: React.TouchEvent<SVGSVGElement>) => {
     if (e.touches.length === 1) {
       const t = e.touches[0]
-      // ノードタップ以外でドラッグ開始
       if (!(e.target as Element).closest('g[data-node]')) {
         isDragging.current = true
         dragMoved.current = false
@@ -533,7 +555,7 @@ export default function ExplorePage() {
     const chipBg    = lab.cluster_id !== null ? C_CHIP[ci] : 'rgba(148,163,184,0.12)'
     const chipColor = lab.cluster_id !== null ? C[ci] : '#64748B'
     const strokeColor = lab.cluster_id !== null ? C_STROKE[ci] : 'rgba(148,163,184,0.32)'
-    const clusterName = lab.cluster_id !== null ? CLUSTER_NAMES[ci] : '未分類'
+    const clusterName = getClusterLabel(lab.cluster_id)
     const isPinned = pins.includes(lab.id)
     const courseInfo = getLabCourseInfo(lab.id)
     const facultyNames = lab.faculty_name ? lab.faculty_name.split(/[、,，]/).map(s => s.trim()).filter(Boolean) : []
@@ -585,6 +607,53 @@ export default function ExplorePage() {
           </div>
         </div>
       </div>
+    )
+  }
+
+  const renderNoDataModal = () => {
+    if (!noDataModal) return null
+    const lab = noDataModal
+    return (
+      <>
+        <div onClick={() => setNoDataModal(null)}
+          style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(15,30,40,0.45)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', animation: 'fadeIn 0.2s ease' }} />
+        <div style={{
+          position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+          zIndex: 90, width: 'min(480px, calc(100vw - 32px))',
+          background: 'white', borderRadius: 22, border: '1.5px solid #DCE8EE',
+          boxShadow: '0 24px 64px rgba(41,88,107,0.20)', padding: '28px 28px 24px',
+          fontFamily: "'Noto Sans JP',sans-serif",
+          animation: 'slideUpCard 0.22s cubic-bezier(0.34,1.4,0.64,1)',
+        }}>
+          <button onClick={() => setNoDataModal(null)}
+            style={{ position: 'absolute', top: 16, right: 16, width: 30, height: 30, borderRadius: 999, border: '1px solid #DCE8EE', background: '#F3FBFD', cursor: 'pointer', fontSize: 13, color: '#8FA1AE', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, marginBottom: 18 }}>
+            <div style={{ width: 44, height: 44, borderRadius: 14, flexShrink: 0, background: 'rgba(245,158,11,0.10)', border: '1.5px solid rgba(245,158,11,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>🔍</div>
+            <div>
+              <p style={{ fontSize: 11, fontWeight: 700, color: '#F59E0B', margin: '0 0 4px', letterSpacing: '0.04em', fontFamily: "'Sora',sans-serif" }}>情報不足のため未配置</p>
+              <h2 style={{ fontSize: 17, fontWeight: 800, color: '#1F2D3D', margin: 0, lineHeight: 1.3, letterSpacing: '-0.02em', fontFamily: "'Sora','Noto Sans JP',sans-serif" }}>{lab.name}</h2>
+              {lab.faculty_name && <p style={{ fontSize: 12, color: '#5B6B79', margin: '4px 0 0' }}><span style={{ color: '#8FA1AE', fontWeight: 700, marginRight: 5 }}>教員</span>{lab.faculty_name}</p>}
+            </div>
+          </div>
+          <div style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.18)', borderRadius: 12, padding: '12px 14px', marginBottom: 18 }}>
+            <p style={{ fontSize: 13, color: '#5B6B79', margin: 0, lineHeight: 1.75 }}>
+              この研究室は、研究概要の情報が不足しているためマップに配置されていません。<br />
+              HPや研究概要などの情報をご提供いただければ、マップへの追加をご検討します。
+            </p>
+          </div>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <a href={`/contact?type=correction&lab_id=${encodeURIComponent(lab.id)}&lab_name=${encodeURIComponent(lab.name)}`}
+              target="_blank" rel="noopener noreferrer"
+              style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '12px 0', borderRadius: 13, background: 'linear-gradient(135deg,#5FAFC6,#3E95AE)', color: 'white', fontSize: 13, fontWeight: 700, textDecoration: 'none', fontFamily: "'Sora',sans-serif", boxShadow: '0 4px 14px rgba(95,175,198,0.35)' }}>
+              📝 情報修正依頼を送る
+            </a>
+            <button onClick={() => setNoDataModal(null)}
+              style={{ padding: '12px 18px', borderRadius: 13, border: '1.5px solid #DCE8EE', background: 'white', color: '#5B6B79', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: "'Sora',sans-serif" }}>
+              閉じる
+            </button>
+          </div>
+        </div>
+      </>
     )
   }
 
@@ -677,7 +746,7 @@ export default function ExplorePage() {
     const color = lab.cluster_id !== null ? C[ci] : '#94A3B8'
     const chipBg = lab.cluster_id !== null ? C_CHIP[ci] : 'rgba(148,163,184,0.12)'
     const chipColor = lab.cluster_id !== null ? C[ci] : '#64748B'
-    const clusterName = lab.cluster_id !== null ? CLUSTER_NAMES[ci] : '未分類'
+    const clusterName = getClusterLabel(lab.cluster_id)
     const isPinned = pins.includes(lab.id)
     const courseInfo = getLabCourseInfo(lab.id)
     const facultyNames = lab.faculty_name ? lab.faculty_name.split(/[、,，]/).map(s => s.trim()).filter(Boolean) : []
@@ -891,14 +960,14 @@ export default function ExplorePage() {
           <div style={{ height: 1, background: '#DCE8EE' }} />
         </div>
         <div style={{ overflowY: 'auto', flex: 1 }}>
-          {CLUSTER_NAMES.map((name, i) => {
+          {clusterLabels.map(({ cluster_id: i, label: name }) => {
             const active = activeCluster === i
             return (
               <button key={i} onClick={() => { setActiveCluster(active ? null : i); setMobileLegendOpen(false) }}
-                style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '14px 16px', background: active ? C_CHIP_H[i] : 'white', border: 'none', borderBottom: '1px solid rgba(220,232,238,0.5)', cursor: 'pointer', textAlign: 'left', fontFamily: "'Noto Sans JP',sans-serif" }}>
-                <span style={{ width: 11, height: 11, borderRadius: '50%', background: C[i], flexShrink: 0 }} />
-                <span style={{ fontSize: 13, fontWeight: active ? 700 : 500, color: active ? C[i] : '#1F2D3D', flex: 1, lineHeight: 1.4 }}>{name}</span>
-                {active && <span style={{ fontSize: 12, color: C[i] }}>✓</span>}
+                style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '14px 16px', background: active ? C_CHIP_H[i % C_CHIP_H.length] : 'white', border: 'none', borderBottom: '1px solid rgba(220,232,238,0.5)', cursor: 'pointer', textAlign: 'left', fontFamily: "'Noto Sans JP',sans-serif" }}>
+                <span style={{ width: 11, height: 11, borderRadius: '50%', background: C[i % C.length], flexShrink: 0 }} />
+                <span style={{ fontSize: 13, fontWeight: active ? 700 : 500, color: active ? C[i % C.length] : '#1F2D3D', flex: 1, lineHeight: 1.4 }}>{name}</span>
+                {active && <span style={{ fontSize: 12, color: C[i % C.length] }}>✓</span>}
               </button>
             )
           })}
@@ -1238,27 +1307,29 @@ export default function ExplorePage() {
                   for (let y = 0; y <= TOTAL_H; y += GRID_SIZE) lines.push(<line key={`hl${y}`} x1={0} y1={y} x2={TOTAL_W} y2={y} stroke="rgba(95,175,198,0.10)" strokeWidth={lw} />)
                   return lines
                 })()}
-                {clusterEllipses.map((el, i) => {
+                {clusterEllipses.map((el, idx) => {
                   if (!el) return null
                   if (mapViewMode === 'scoped') return null
-                  const labelW = CLUSTER_NAMES[i].length * 10.5 + 26
+                  const { ci, cx, cy, rx, ry } = el
+                  const name = getClusterLabel(ci)
+                  const labelW = name.length * 10.5 + 26
                   return (
-                    <g key={i} data-ellipse="true" style={{ cursor: 'pointer' }} onClick={e => { e.stopPropagation(); setClusterPanel(clusterPanel === i ? null : i) }}>
-                      <ellipse cx={el.cx} cy={el.cy} rx={el.rx} ry={el.ry} fill={C_FILL[i]} stroke={clusterPanel === i ? C[i] : C_STROKE[i]} strokeWidth={clusterPanel === i ? 2 : 1} />
-                      <g transform={`translate(${el.cx},${el.cy - el.ry + 4}) scale(${1/zoom})`}>
-                        <rect x={-(labelW/2)} y={-10} width={labelW} height={20} rx={10} fill="white" stroke={C_STROKE[i]} strokeWidth={1} />
-                        <circle cx={-(labelW/2) + 10} cy={0} r={3.5} fill={C[i]} />
-                        <text x={-(labelW/2) + 18} y={4} fontSize={10} fontWeight={600} fill={C[i]} style={{ pointerEvents: 'none' }}>{CLUSTER_NAMES[i]}</text>
+                    <g key={ci} data-ellipse="true" style={{ cursor: 'pointer' }} onClick={e => { e.stopPropagation(); setClusterPanel(clusterPanel === ci ? null : ci) }}>
+                      <ellipse cx={cx} cy={cy} rx={rx} ry={ry} fill={C_FILL[ci % C_FILL.length]} stroke={clusterPanel === ci ? C[ci % C.length] : C_STROKE[ci % C_STROKE.length]} strokeWidth={clusterPanel === ci ? 2 : 1} />
+                      <g transform={`translate(${cx},${cy - ry + 4}) scale(${1/zoom})`}>
+                        <rect x={-(labelW/2)} y={-10} width={labelW} height={20} rx={10} fill="white" stroke={C_STROKE[ci % C_STROKE.length]} strokeWidth={1} />
+                        <circle cx={-(labelW/2) + 10} cy={0} r={3.5} fill={C[ci % C.length]} />
+                        <text x={-(labelW/2) + 18} y={4} fontSize={10} fontWeight={600} fill={C[ci % C.length]} style={{ pointerEvents: 'none' }}>{name}</text>
                       </g>
                     </g>
                   )
                 })}
                 {placed.map(lab => {
-                  const color = lab.cluster_id !== null ? C[lab.cluster_id] : '#94A3B8'
+                  if (lab.summary_quality === 'C') return null
+                  const color = lab.cluster_id !== null ? C[lab.cluster_id % C.length] : '#94A3B8'
                   const isActive = preview?.lab.id === lab.id, isFocused = focusedLabId === lab.id
                   const isPinned = pins.includes(lab.id), isMatch = matchLab(lab)
                   const showLabel = zoom >= LABEL_SHOW_ZOOM && visibleLabelIds.has(lab.id)
-                  // スマホではノードを少し大きく
                   const mobileScale = isMobile ? 1.3 : 1
                   const nodeScale = zoom < NODE_SHRINK_ZOOM ? Math.max(0.4, zoom / NODE_SHRINK_ZOOM) : 1
                   const r = (isActive || isFocused ? 13 : 10) * nodeScale * mobileScale
@@ -1360,18 +1431,18 @@ export default function ExplorePage() {
                 <div style={{ width: legendOpen ? LEGEND_W : 0, opacity: legendOpen ? 1 : 0, overflow: 'hidden', transition: 'width 0.22s ease, opacity 0.18s ease', pointerEvents: legendOpen ? 'auto' : 'none', maxHeight: 'calc(100vh - 200px)' }}>
                   <div style={{ width: LEGEND_W, background: 'rgba(255,255,255,0.96)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', borderRadius: 16, border: '1px solid #DCE8EE', boxShadow: '0 4px 20px rgba(41,88,107,0.10)', overflow: 'hidden', animation: legendOpen ? 'panelIn 0.18s ease' : 'none' }}>
                     <div style={{ padding: '10px 12px 8px', borderBottom: '1px solid #DCE8EE', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <span style={{ fontSize: 12, fontWeight: 700, color: activeCluster !== null ? C[activeCluster] : '#1F2D3D', fontFamily: "'Sora',sans-serif" }}>● 研究クラスタ</span>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: activeCluster !== null ? C[activeCluster % C.length] : '#1F2D3D', fontFamily: "'Sora',sans-serif" }}>● 研究クラスタ</span>
                       {activeCluster !== null && <button onClick={() => setActiveCluster(null)} style={{ fontSize: 10, color: '#8FA1AE', background: 'none', border: 'none', cursor: 'pointer', padding: '1px 4px', fontFamily: "'Sora',sans-serif" }}>✕ 解除</button>}
                     </div>
                     <div style={{ overflowY: 'auto', maxHeight: 'calc(100vh - 240px)' }}>
-                      {CLUSTER_NAMES.map((name, i) => {
+                      {clusterLabels.map(({ cluster_id: i, label: name }) => {
                         const active = activeCluster === i, hov = chipHover === i
                         return (
                           <button key={i} className="chip-btn" onClick={() => setActiveCluster(active ? null : i)} onMouseEnter={() => setChipHover(i)} onMouseLeave={() => setChipHover(null)}
-                            style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 12px', background: active || hov ? C_CHIP_H[i] : 'transparent', border: 'none', borderBottom: '1px solid rgba(220,232,238,0.5)', cursor: 'pointer', fontFamily: "'Noto Sans JP',sans-serif", textAlign: 'left', transition: 'background 0.12s' }}>
-                            <span style={{ width: 9, height: 9, borderRadius: '50%', background: C[i], flexShrink: 0, boxShadow: active ? `0 0 0 3px ${C_CHIP[i]}` : 'none' }} />
-                            <span style={{ fontSize: 11, fontWeight: active ? 700 : 500, color: active ? C[i] : '#1F2D3D', lineHeight: 1.3 }}>{name}</span>
-                            {active && <span style={{ marginLeft: 'auto', fontSize: 10, color: C[i] }}>✓</span>}
+                            style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 12px', background: active || hov ? C_CHIP_H[i % C_CHIP_H.length] : 'transparent', border: 'none', borderBottom: '1px solid rgba(220,232,238,0.5)', cursor: 'pointer', fontFamily: "'Noto Sans JP',sans-serif", textAlign: 'left', transition: 'background 0.12s' }}>
+                            <span style={{ width: 9, height: 9, borderRadius: '50%', background: C[i % C.length], flexShrink: 0, boxShadow: active ? `0 0 0 3px ${C_CHIP[i % C_CHIP.length]}` : 'none' }} />
+                            <span style={{ fontSize: 11, fontWeight: active ? 700 : 500, color: active ? C[i % C.length] : '#1F2D3D', lineHeight: 1.3 }}>{name}</span>
+                            {active && <span style={{ marginLeft: 'auto', fontSize: 10, color: C[i % C.length] }}>✓</span>}
                           </button>
                         )
                       })}
@@ -1379,9 +1450,9 @@ export default function ExplorePage() {
                   </div>
                 </div>
                 <button onClick={() => setLegendOpen(v => !v)}
-                  style={{ width: LEGEND_BTN_W, height: 36, borderRadius: 11, border: '1px solid #DCE8EE', flexShrink: 0, background: activeCluster !== null ? C_CHIP[activeCluster] : 'rgba(255,255,255,0.96)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', boxShadow: '0 2px 10px rgba(41,88,107,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', pointerEvents: 'auto', transition: 'background 0.15s' }}>
+                  style={{ width: LEGEND_BTN_W, height: 36, borderRadius: 11, border: '1px solid #DCE8EE', flexShrink: 0, background: activeCluster !== null ? C_CHIP[activeCluster % C_CHIP.length] : 'rgba(255,255,255,0.96)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', boxShadow: '0 2px 10px rgba(41,88,107,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', pointerEvents: 'auto', transition: 'background 0.15s' }}>
                   {activeCluster !== null
-                    ? <span style={{ width: 11, height: 11, borderRadius: '50%', background: C[activeCluster], display: 'inline-block' }} />
+                    ? <span style={{ width: 11, height: 11, borderRadius: '50%', background: C[activeCluster % C.length], display: 'inline-block' }} />
                     : <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="#8FA1AE" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><circle cx="5" cy="6" r="1.5" fill="#8FA1AE"/><line x1="9" y1="6" x2="20" y2="6"/><circle cx="5" cy="12" r="1.5" fill="#8FA1AE"/><line x1="9" y1="12" x2="20" y2="12"/><circle cx="5" cy="18" r="1.5" fill="#8FA1AE"/><line x1="9" y1="18" x2="20" y2="18"/></svg>}
                 </button>
               </div>
@@ -1400,21 +1471,21 @@ export default function ExplorePage() {
 
               {/* クラスタパネル */}
               {clusterPanel !== null && (
-                <div style={{ position: 'absolute', top: 66, left: filterLeftOffset + 8, zIndex: 20, width: 284, background: 'rgba(255,255,255,0.97)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', borderRadius: 16, border: `1.5px solid ${C_STROKE[clusterPanel]}`, boxShadow: '0 4px 24px rgba(41,88,107,0.10)', padding: '16px', fontFamily: "'Noto Sans JP',sans-serif", transition: 'left 0.22s ease', animation: 'panelIn 0.18s ease' }}>
+                <div style={{ position: 'absolute', top: 66, left: filterLeftOffset + 8, zIndex: 20, width: 284, background: 'rgba(255,255,255,0.97)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', borderRadius: 16, border: `1.5px solid ${C_STROKE[clusterPanel % C_STROKE.length]}`, boxShadow: '0 4px 24px rgba(41,88,107,0.10)', padding: '16px', fontFamily: "'Noto Sans JP',sans-serif", transition: 'left 0.22s ease', animation: 'panelIn 0.18s ease' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <div style={{ width: 10, height: 10, borderRadius: '50%', background: C[clusterPanel] }} />
-                      <span style={{ fontWeight: 700, fontSize: 14, color: C[clusterPanel], fontFamily: "'Sora',sans-serif" }}>{CLUSTER_NAMES[clusterPanel]}</span>
+                      <div style={{ width: 10, height: 10, borderRadius: '50%', background: C[clusterPanel % C.length] }} />
+                      <span style={{ fontWeight: 700, fontSize: 14, color: C[clusterPanel % C.length], fontFamily: "'Sora',sans-serif" }}>{getClusterLabel(clusterPanel)}</span>
                     </div>
                     <button onClick={() => setClusterPanel(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, color: '#8FA1AE', lineHeight: 1, padding: 2 }}>✕</button>
                   </div>
-                  <p style={{ fontSize: 12, color: '#5B6B79', lineHeight: 1.75, margin: '0 0 12px' }}>{CLUSTER_DESC[clusterPanel]}</p>
+                  <p style={{ fontSize: 12, color: '#5B6B79', lineHeight: 1.75, margin: '0 0 12px' }}>{getClusterDesc(clusterPanel)}</p>
                   <div style={{ fontSize: 11, color: '#8FA1AE', marginBottom: 6, fontWeight: 600, fontFamily: "'Sora',sans-serif" }}>所属研究室 {placed.filter(l => l.cluster_id === clusterPanel).length}件</div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 200, overflowY: 'auto' }}>
                     {placed.filter(l => l.cluster_id === clusterPanel).map(l => (
                       <button key={l.id} onClick={() => { const t = calcFocusTransform(l.x, l.y, 2, svgW, svgH); setZoom(t.zoom); setOffset(t.offset); setFocusedLabId(l.id); setClusterPanel(null) }}
                         style={{ textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', padding: '5px 8px', borderRadius: 7, fontSize: 12, color: '#1F2D3D', transition: 'background 0.1s', fontFamily: "'Noto Sans JP',sans-serif" }}
-                        onMouseEnter={e => (e.currentTarget.style.background = C_CHIP[clusterPanel])}
+                        onMouseEnter={e => (e.currentTarget.style.background = C_CHIP[clusterPanel % C_CHIP.length])}
                         onMouseLeave={e => (e.currentTarget.style.background = 'none')}>{l.name}</button>
                     ))}
                   </div>
@@ -1467,8 +1538,8 @@ export default function ExplorePage() {
                 {/* 凡例 */}
                 <button className="mobile-nav-btn" onClick={() => setMobileLegendOpen(true)}
                   style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, padding: '10px 0 8px', background: 'none', border: 'none', cursor: 'pointer', transition: 'opacity .15s, transform .15s' }}>
-                  <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={activeCluster !== null ? C[activeCluster] : '#8FA1AE'} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><circle cx="5" cy="6" r="1.5" fill={activeCluster !== null ? C[activeCluster] : '#8FA1AE'}/><line x1="9" y1="6" x2="20" y2="6"/><circle cx="5" cy="12" r="1.5" fill={activeCluster !== null ? C[activeCluster] : '#8FA1AE'}/><line x1="9" y1="12" x2="20" y2="12"/><circle cx="5" cy="18" r="1.5" fill={activeCluster !== null ? C[activeCluster] : '#8FA1AE'}/><line x1="9" y1="18" x2="20" y2="18"/></svg>
-                  <span style={{ fontSize: 10, color: activeCluster !== null ? C[activeCluster] : '#8FA1AE', fontWeight: activeCluster !== null ? 700 : 500, fontFamily: "'Noto Sans JP',sans-serif" }}>クラスタ</span>
+                  <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={activeCluster !== null ? C[activeCluster % C.length] : '#8FA1AE'} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><circle cx="5" cy="6" r="1.5" fill={activeCluster !== null ? C[activeCluster % C.length] : '#8FA1AE'}/><line x1="9" y1="6" x2="20" y2="6"/><circle cx="5" cy="12" r="1.5" fill={activeCluster !== null ? C[activeCluster % C.length] : '#8FA1AE'}/><line x1="9" y1="12" x2="20" y2="12"/><circle cx="5" cy="18" r="1.5" fill={activeCluster !== null ? C[activeCluster % C.length] : '#8FA1AE'}/><line x1="9" y1="18" x2="20" y2="18"/></svg>
+                  <span style={{ fontSize: 10, color: activeCluster !== null ? C[activeCluster % C.length] : '#8FA1AE', fontWeight: activeCluster !== null ? 700 : 500, fontFamily: "'Noto Sans JP',sans-serif" }}>クラスタ</span>
                 </button>
                 {/* ピン */}
                 <button className="mobile-nav-btn" onClick={() => setShowPinList(v => !v)}
@@ -1503,7 +1574,7 @@ export default function ExplorePage() {
                       {pins.length === 0
                         ? <p style={{ fontSize: 13, color: '#8FA1AE', textAlign: 'center', padding: '32px 0', margin: 0, fontFamily: "'Noto Sans JP',sans-serif" }}>研究室のノードをタップして<br/>☆ でピン留めできます</p>
                         : pinnedLabs.map(lab => {
-                          const color = lab.cluster_id !== null ? C[lab.cluster_id] : '#94A3B8'
+                          const color = lab.cluster_id !== null ? C[lab.cluster_id % C.length] : '#94A3B8'
                           return (
                             <div key={lab.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 16px', borderBottom: '1px solid rgba(220,232,238,0.5)' }}>
                               <span style={{ width: 9, height: 9, borderRadius: '50%', background: color, flexShrink: 0 }} />
@@ -1533,6 +1604,7 @@ export default function ExplorePage() {
       {isMobile && mobileFilterOpen && renderMobileFilterSheet()}
       {isMobile && mobileLegendOpen && renderMobileLegendSheet()}
       {isMobile && mobileMenuOpen && renderMobileMenuSheet()}
+      {renderNoDataModal()}
     </>
   )
 }

@@ -1,7 +1,7 @@
 'use client'
-import { useEffect, useState, useCallback } from 'react'
-import { useUser } from '@clerk/nextjs'
-import { supabase } from '@/lib/supabase'
+import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useUser, useAuth } from '@clerk/nextjs'
+import { createClient } from '@supabase/supabase-js'
 
 const PIN_KEY = 'labmap_pins'
 
@@ -14,8 +14,24 @@ function saveLocal(ids: string[]) {
 
 export function usePins() {
   const { user, isLoaded } = useUser()
+  const { getToken } = useAuth()
   const [pins, setPins] = useState<string[]>([])
   const [syncing, setSyncing] = useState(false)
+
+  const supabase = useMemo(() => createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      global: {
+        fetch: async (url, options = {}) => {
+          const token = await getToken({ template: 'supabase' })
+          const headers = new Headers(options?.headers)
+          if (token) headers.set('Authorization', `Bearer ${token}`)
+          return fetch(url, { ...options, headers })
+        },
+      },
+    }
+  ), [getToken])
 
   useEffect(() => {
     if (!isLoaded) return
@@ -45,7 +61,7 @@ export function usePins() {
     } else {
       setPins(loadLocal())
     }
-  }, [user, isLoaded])
+  }, [user, isLoaded, supabase])
 
   const togglePin = useCallback(async (labId: string) => {
     const isPinned = pins.includes(labId)
@@ -61,7 +77,7 @@ export function usePins() {
     } else {
       saveLocal(next)
     }
-  }, [pins, user])
+  }, [pins, user, supabase])
 
   const clearPins = useCallback(async () => {
     if (user) {
@@ -70,7 +86,7 @@ export function usePins() {
       saveLocal([])
     }
     setPins([])
-  }, [user])
+  }, [user, supabase])
 
   return { pins, togglePin, clearPins, syncing }
 }

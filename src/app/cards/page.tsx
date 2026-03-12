@@ -23,11 +23,15 @@ type LabCourse = {
   course: string
 }
 
+type ClusterLabel = {
+  cluster_id: number
+  label: string
+}
+
 type FilterMode = 'course' | 'dept' | 'tag' | null
 
 const C      = ['#5FAFC6','#22C55E','#F59E0B','#EF4444','#8B5CF6','#EC4899','#14B8A6','#F97316','#0EA5E9','#A855F7'] as const
 const C_CHIP = ['rgba(95,175,198,0.12)','rgba(34,197,94,0.12)','rgba(245,158,11,0.12)','rgba(239,68,68,0.12)','rgba(139,92,246,0.12)','rgba(236,72,153,0.12)','rgba(20,184,166,0.12)','rgba(249,115,22,0.12)','rgba(14,165,233,0.12)','rgba(168,85,247,0.12)']
-const CLUSTER_NAMES = ['情報・社会システム','材料プロセス・金属','流体・航空宇宙・計算力学','環境・土木・化学プロセス','ナノ材料・機能デバイス','エネルギーデバイス・ナノ化学','ロボット・医工学・バイオ','計測・イメージング・量子ビーム','通信・光・電子デバイス','原子力・核融合・プラズマ']
 const FILTER_W = 240
 
 const FILTER_TABS: { mode: FilterMode; label: string }[] = [
@@ -50,6 +54,7 @@ export default function CardsPage() {
 
   const [labs, setLabs] = useState<Lab[]>([])
   const [labCourses, setLabCourses] = useState<LabCourse[]>([])
+  const [clusterLabels, setClusterLabels] = useState<ClusterLabel[]>([])
   const [loading, setLoading] = useState(true)
   const [query, setQuery] = useState('')
 
@@ -64,10 +69,15 @@ export default function CardsPage() {
   const [sortBy, setSortBy] = useState<'default' | 'cluster' | 'name'>('default')
   const [showPinsOnly, setShowPinsOnly] = useState(false)
 
-  // スマホ対応 state
   const [isMobile, setIsMobile] = useState(false)
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false)
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false)
+
+  // ── クラスタラベル取得ヘルパー（唯一のソース: cluster_labelsテーブル）──
+  const getClusterName = (clusterId: number | null): string => {
+    if (clusterId === null) return '未分類'
+    return clusterLabels.find(l => l.cluster_id === clusterId)?.label ?? `クラスタ${clusterId}`
+  }
 
   useEffect(() => {
     const check = () => {
@@ -82,13 +92,25 @@ export default function CardsPage() {
 
   useEffect(() => {
     ;(async () => {
-      const { data: labData } = await supabase.from('labs').select('id,name,faculty_name,cluster_id,dept,summary_text,summary_bullets,lab_url')
-      const { data: tagData } = await supabase.from('lab_tags').select('lab_id,tag').limit(10000)
-      const { data: courseData } = await supabase.from('lab_courses').select('lab_id,undergraduate_dept,course')
+      const [
+        { data: labData },
+        { data: tagData },
+        { data: courseData },
+        { data: labelData },
+      ] = await Promise.all([
+        supabase.from('labs').select('id,name,faculty_name,cluster_id,dept,summary_text,summary_bullets,lab_url'),
+        supabase.from('lab_tags').select('lab_id,tag').limit(10000),
+        supabase.from('lab_courses').select('lab_id,undergraduate_dept,course'),
+        supabase.from('cluster_labels').select('cluster_id,label').order('cluster_id'),
+      ])
       const tagMap: Record<string, string[]> = {}
-      for (const t of tagData ?? []) { if (!tagMap[t.lab_id]) tagMap[t.lab_id] = []; tagMap[t.lab_id].push(t.tag) }
+      for (const t of tagData ?? []) {
+        if (!tagMap[t.lab_id]) tagMap[t.lab_id] = []
+        tagMap[t.lab_id].push(t.tag)
+      }
       setLabs((labData ?? []).map(l => ({ ...l, tags: tagMap[l.id] ?? [] })))
       setLabCourses(courseData ?? [])
+      setClusterLabels(labelData ?? [])
       setLoading(false)
     })()
   }, [])
@@ -164,22 +186,24 @@ export default function CardsPage() {
     return 0
   })
 
-  // フィルターコンテンツ（PC・スマホ共用）
   const renderFilterContent = () => {
     if (filterMode === 'course') return (
       <>
         {hasDeptFilter && <div style={{ padding: '6px 10px', background: 'rgba(239,68,68,0.06)', margin: '0 8px 6px', borderRadius: 8, fontSize: 11, color: '#EF4444', fontFamily: "'Noto Sans JP',sans-serif" }}>⚠ 専攻フィルター選択中</div>}
-        <div style={{ padding: '8px 12px 8px', borderBottom: '1px solid #DCE8EE' }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: '#8FA1AE', marginBottom: 6, letterSpacing: '0.06em', fontFamily: "'Sora',sans-serif" }}>研究クラスタ</div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-            {CLUSTER_NAMES.map((name, i) => (
-              <button key={i} onClick={() => setActiveCluster(activeCluster === i ? null : i)}
-                style={{ fontSize: 10, padding: '3px 9px', borderRadius: 999, border: 'none', cursor: 'pointer', fontFamily: "'Noto Sans JP',sans-serif", background: activeCluster === i ? C[i] : C_CHIP[i], color: activeCluster === i ? 'white' : C[i], fontWeight: activeCluster === i ? 700 : 500, transition: 'all .15s' }}>
-                {name}
-              </button>
-            ))}
+        {/* クラスタフィルター: DBから取得したclusterLabelsを使う */}
+        {clusterLabels.length > 0 && (
+          <div style={{ padding: '8px 12px 8px', borderBottom: '1px solid #DCE8EE' }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: '#8FA1AE', marginBottom: 6, letterSpacing: '0.06em', fontFamily: "'Sora',sans-serif" }}>研究クラスタ</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+              {clusterLabels.map(({ cluster_id: i, label: name }) => (
+                <button key={i} onClick={() => setActiveCluster(activeCluster === i ? null : i)}
+                  style={{ fontSize: 10, padding: '3px 9px', borderRadius: 999, border: 'none', cursor: 'pointer', fontFamily: "'Noto Sans JP',sans-serif", background: activeCluster === i ? C[i % C.length] : C_CHIP[i % C_CHIP.length], color: activeCluster === i ? 'white' : C[i % C.length], fontWeight: activeCluster === i ? 700 : 500, transition: 'all .15s' }}>
+                  {name}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
         {deptList.map(dept => {
           const courses = deptCourseMap.get(dept) ?? [], isExpanded = expandedDepts.has(dept)
           const selCount = courses.filter(c => selectedCourses.has(`${dept}::${c}`)).length
@@ -249,7 +273,6 @@ export default function CardsPage() {
     return null
   }
 
-  // ローディング
   if (loading || !authLoaded) return (
     <>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Sora:wght@700;800&family=Noto+Sans+JP:wght@400;500;700&display=swap');@keyframes spin{to{transform:rotate(360deg)}}`}</style>
@@ -262,7 +285,6 @@ export default function CardsPage() {
     </>
   )
 
-  // スマホ用フィルターシート
   const renderMobileFilterSheet = () => (
     <>
       <div onClick={() => setMobileFilterOpen(false)}
@@ -342,7 +364,6 @@ export default function CardsPage() {
 
       <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', background: '#F3FBFD' }}>
 
-        {/* PC ヘッダー（640px 以上）*/}
         {!isMobile && (
           <header style={{
             position: 'sticky', top: 0, zIndex: 30,
@@ -406,7 +427,6 @@ export default function CardsPage() {
           </header>
         )}
 
-        {/* スマホ ヘッダー（640px 未満）*/}
         {isMobile && (
           <header style={{
             position: 'sticky', top: 0, zIndex: 30,
@@ -435,7 +455,6 @@ export default function CardsPage() {
           </header>
         )}
 
-        {/* スマホ 検索バー（ヘッダー下スライド展開）*/}
         {isMobile && mobileSearchOpen && (
           <div style={{ position: 'sticky', top: 52, zIndex: 29, background: 'white', borderBottom: '1px solid #DCE8EE', padding: '10px 12px', display: 'flex', gap: 8, alignItems: 'center' }}>
             <div style={{ flex: 1, position: 'relative' }}>
@@ -455,8 +474,6 @@ export default function CardsPage() {
         )}
 
         <div style={{ display: 'flex', flex: 1 }}>
-
-          {/* PC フィルターサイドバー */}
           {!isMobile && (
             <aside style={{
               width: filterOpen ? FILTER_W + 16 : 52, flexShrink: 0,
@@ -500,15 +517,10 @@ export default function CardsPage() {
             </aside>
           )}
 
-          {/* カードグリッド */}
           <main style={{ flex: 1, padding: isMobile ? '12px 12px 32px' : '20px 24px 60px', minWidth: 0 }}>
-
-            {/* スマホ用ツールバー（件数・ソート・ピン・フィルター）*/}
             {isMobile && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-                <span style={{ fontSize: 12, color: '#8FA1AE', fontFamily: "'Noto Sans JP',sans-serif", flex: 1, whiteSpace: 'nowrap' }}>
-                  {sortedLabs.length}件
-                </span>
+                <span style={{ fontSize: 12, color: '#8FA1AE', fontFamily: "'Noto Sans JP',sans-serif", flex: 1, whiteSpace: 'nowrap' }}>{sortedLabs.length}件</span>
                 <select value={sortBy} onChange={e => setSortBy(e.target.value as typeof sortBy)}
                   style={{ padding: '7px 8px', fontSize: 11, borderRadius: 9, border: '1.5px solid #DCE8EE', background: 'white', outline: 'none', fontFamily: "'Sora',sans-serif", color: '#1F2D3D', cursor: 'pointer', flexShrink: 0 }}>
                   <option value="default">デフォルト</option>
@@ -539,13 +551,12 @@ export default function CardsPage() {
                 </button>
               </div>
             ) : (
-              // PC: 2列 / スマホ: 1列
               <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)', gap: isMobile ? 12 : 16 }}>
                 {sortedLabs.map((lab, idx) => {
                   const ci          = lab.cluster_id ?? 0
-                  const color       = lab.cluster_id !== null ? C[ci] : '#94A3B8'
-                  const chipBg      = lab.cluster_id !== null ? C_CHIP[ci] : 'rgba(148,163,184,0.12)'
-                  const clusterName = lab.cluster_id !== null ? CLUSTER_NAMES[ci] : '未分類'
+                  const color       = lab.cluster_id !== null ? C[ci % C.length] : '#94A3B8'
+                  const chipBg      = lab.cluster_id !== null ? C_CHIP[ci % C_CHIP.length] : 'rgba(148,163,184,0.12)'
+                  const clusterName = getClusterName(lab.cluster_id)  // ← DBから取得
                   const isPinned    = pins.includes(lab.id)
                   const courseInfo  = getLabCourseInfo(lab.id)
                   const bullets     = parseBullets(lab.summary_bullets)
@@ -560,8 +571,6 @@ export default function CardsPage() {
                         display: 'flex', flexDirection: 'column', gap: 11,
                         animationDelay: `${Math.min(idx * 25, 400)}ms`, animationFillMode: 'both',
                       }}>
-
-                      {/* カードヘッダー */}
                       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10, fontWeight: 700, color, background: chipBg, padding: '2px 9px 2px 6px', borderRadius: 999, marginBottom: 6 }}>
@@ -580,7 +589,6 @@ export default function CardsPage() {
                         </button>
                       </div>
 
-                      {/* 学科・専攻 */}
                       {(courseInfo || lab.dept) && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                           {courseInfo && (
@@ -598,7 +606,6 @@ export default function CardsPage() {
                         </div>
                       )}
 
-                      {/* 研究内容 */}
                       {bullets.length > 0 ? (
                         <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 5 }}>
                           {bullets.map((b, i) => (
@@ -611,7 +618,6 @@ export default function CardsPage() {
                         <p style={{ fontSize: 12, color: '#5B6B79', margin: 0, lineHeight: 1.75, display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden', fontFamily: "'Noto Sans JP',sans-serif" }}>{lab.summary_text}</p>
                       ) : null}
 
-                      {/* タグ */}
                       {lab.tags.length > 0 && (
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
                           {lab.tags.slice(0, 6).map((t, i) => (
@@ -623,7 +629,6 @@ export default function CardsPage() {
                         </div>
                       )}
 
-                      {/* カードフッター */}
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto', paddingTop: 11, borderTop: '1px solid #F3FBFD' }}>
                         <Link href="/map" style={{ fontSize: 11, color: '#8FA1AE', textDecoration: 'none', fontFamily: "'Noto Sans JP',sans-serif", transition: 'color .15s' }}
                           onMouseEnter={e => ((e.currentTarget as HTMLAnchorElement).style.color = '#5FAFC6')}
@@ -645,9 +650,7 @@ export default function CardsPage() {
           </main>
         </div>
 
-        {/* スマホ用フィルターシート */}
         {isMobile && mobileFilterOpen && renderMobileFilterSheet()}
-
       </div>
     </>
   )
