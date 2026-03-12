@@ -53,7 +53,8 @@ export default async function LabDetail({ params }: { params: Promise<{ id: stri
     .map(n => ({ ...n, lab: neighborLabs?.find(l => l.id === n.id) }))
     .filter(n => n.lab)
 
-  const { color: clusterColor, name: clusterName, chipBg, stroke: strokeColor } = getClusterStyle(lab.cluster_id)
+  const { color: clusterColor, chipBg, stroke: strokeColor } = getClusterStyle(lab.cluster_id)
+  const clusterName = `クラスタ${lab.cluster_id ?? '不明'}`
 
   const memberNames: string[] = lab.faculty_name
     ? lab.faculty_name.split('・').map((n: string) => n.trim()).filter(Boolean)
