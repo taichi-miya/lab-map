@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { createClient } from '@supabase/supabase-js'
+import { useUser, SignInButton } from '@clerk/nextjs'
 
 const sb = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -12,7 +13,7 @@ type Faculty    = { id: string; name: string; role: string | null; researchmap_i
 type Target     = 'lab' | 'faculty'
 type InputMode  = 'url' | 'screenshot' | 'manual'
 type PubType    = 'paper' | 'book' | 'other'
-type UserRole   = 'admin' | 'contributor'
+type UserRole   = 'superadmin' | 'admin' | 'contributor'
 
 type LabFieldDef = {
   label: string; col: string; group: 'basic' | 'sns'
@@ -66,22 +67,19 @@ function ModeBtn({ active, onClick, icon, title, desc }: { active:boolean; onCli
 }
 
 export default function AdminDataPage() {
+  const { user, isLoaded } = useUser()
+
   const [authed,       setAuthed]       = useState(false)
   const [userRole,     setUserRole]     = useState<UserRole>('contributor')
   const [userName,     setUserName]     = useState('')
-
-  // ── ログイン用 state
-  // contributor: テキスト入力
-  // admin: プルダウン選択 or 新規追加
-  const [nameInput,    setNameInput]    = useState('')   // contributor用テキスト入力
-  const [adminNames,   setAdminNames]   = useState<string[]>([])  // adminプルダウン用
-  const [adminSelect,  setAdminSelect]  = useState('')   // adminプルダウン選択値
-  const [showNewAdmin, setShowNewAdmin] = useState(false) // admin新規追加モード
+  const [nameInput,    setNameInput]    = useState('')
+  const [adminNames,   setAdminNames]   = useState<string[]>([])
+  const [adminSelect,  setAdminSelect]  = useState('')
+  const [showNewAdmin, setShowNewAdmin] = useState(false)
   const [newAdminName, setNewAdminName] = useState('')
   const [pw,           setPw]           = useState('')
   const [loginMode,    setLoginMode]    = useState<'contributor' | 'admin'>('contributor')
   const [loginError,   setLoginError]   = useState('')
-
   const [labs,         setLabs]         = useState<Lab[]>([])
   const [query,        setQuery]        = useState('')
   const [labId,        setLabId]        = useState('')
@@ -122,34 +120,48 @@ export default function AdminDataPage() {
   useEffect(() => { if (labId && target === 'lab') fetchCurrentLabVal(labId, labFieldKey); resetInput() }, [labFieldKey])
   useEffect(() => { if (facId) fetchCurrentFacVal(facId, facFieldKey); resetInput() }, [facId, facFieldKey])
 
+  // Clerkログイン済みなら自動でrole取得
+  useEffect(() => {
+    if (isLoaded && user && !authed) handleClerkLogin()
+  }, [isLoaded, user])
+
   function resetInput() {
     setUrlInput(''); setManualText(''); setAiResult('')
     setImgFile(null); setSourceUrl(''); setYearVal(''); setMultiUrls([''])
   }
 
-  // adminのプルダウン用に admin ロールの人だけ取得
   async function fetchAdminNames() {
     const { data } = await sb.from('contributors').select('name').eq('role', 'admin').order('name')
     if (data) setAdminNames(data.map((d: { name: string }) => d.name))
   }
 
+  async function handleClerkLogin() {
+    if (!user) return
+    const res = await fetch('/api/admin/auth', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        clerk_user_id: user.id,
+        name:  user.fullName ?? user.username ?? user.emailAddresses[0]?.emailAddress ?? 'unknown',
+        email: user.emailAddresses[0]?.emailAddress ?? null,
+      }),
+    })
+    if (res.ok) {
+      const d = await res.json()
+      setAuthed(true)
+      setUserRole(d.role as UserRole)
+      setUserName(d.name)
+    }
+  }
+
   async function handleLogin() {
-    // ログインに使う名前を決定
     let loginName = ''
     if (loginMode === 'contributor') {
       loginName = nameInput.trim()
       if (!loginName) { setLoginError('名前を入力してください'); return }
     } else {
-      // adminモード
-      if (showNewAdmin) {
-        loginName = newAdminName.trim()
-        if (!loginName) { setLoginError('名前を入力してください'); return }
-      } else {
-        loginName = adminSelect
-        if (!loginName) { setLoginError('名前を選択してください'); return }
-      }
+      loginName = showNewAdmin ? newAdminName.trim() : adminSelect
+      if (!loginName) { setLoginError(showNewAdmin ? '名前を入力してください' : '名前を選択してください'); return }
     }
-
     const res = await fetch('/api/admin/auth', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: loginName, password: pw }),
@@ -231,7 +243,8 @@ export default function AdminDataPage() {
     setLoading(true)
 
     try {
-      const isAdmin = userRole === 'admin'
+      // superadmin も admin 権限で動作する
+      const isAdmin = userRole === 'admin' || userRole === 'superadmin'
 
       if (target === 'faculty' && facFieldKey === 'publication') {
         if (!pubTitle.trim() && !pubDoi.trim()) { setLoading(false); return alert('タイトルまたはDOIを入力してください') }
@@ -362,89 +375,122 @@ export default function AdminDataPage() {
     } finally { setLoading(false) }
   }
 
-  const labDef  = LAB_FIELDS[labFieldKey]
-  const facDef  = FACULTY_FIELDS[facFieldKey]
-  const isPub   = target === 'faculty' && facFieldKey === 'publication'
-  const isMulti = target === 'lab' && MULTI_FIELDS.includes(labFieldKey)
-  const isUrl   = target === 'lab' ? !!labDef?.isUrl : !!facDef?.isUrl
-  const isImage = target === 'lab' ? !!labDef?.isImage : false
-  const isAdmin = userRole === 'admin'
+  const labDef     = LAB_FIELDS[labFieldKey]
+  const facDef     = FACULTY_FIELDS[facFieldKey]
+  const isPub      = target === 'faculty' && facFieldKey === 'publication'
+  const isMulti    = target === 'lab' && MULTI_FIELDS.includes(labFieldKey)
+  const isUrl      = target === 'lab' ? !!labDef?.isUrl : !!facDef?.isUrl
+  const isImage    = target === 'lab' ? !!labDef?.isImage : false
+  // superadmin も admin 権限で動作
+  const isAdmin    = userRole === 'admin' || userRole === 'superadmin'
+  const isSuperAdmin = userRole === 'superadmin'
+
+  // ロールバッジの表示設定
+  const roleBadge = {
+    superadmin: { icon:'👑', label:'superadmin', bg:'#EFF6FF', color:'#1D4ED8', border:'#BFDBFE' },
+    admin:      { icon:'🔑', label:'admin',      bg:'#F0FDF4', color:'#16A34A', border:'#BBF7D0' },
+    contributor:{ icon:'✏️', label:'contributor', bg:'#F9FAFB', color:'#6B7280', border:'#E5E7EB' },
+  }[userRole]
 
   // ── ログイン画面
   if (!authed) return (
     <main style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:'#F9FAFB', fontFamily:font }}>
-      <div style={{ background:'white', borderRadius:16, padding:'32px 28px', width:360, border:'1px solid #E5E7EB' }}>
+      <div style={{ background:'white', borderRadius:16, padding:'32px 28px', width:380, border:'1px solid #E5E7EB' }}>
         <h1 style={{ fontSize:17, fontWeight:800, margin:'0 0 4px' }}>データ投入</h1>
-        <p style={{ fontSize:12, color:'#9CA3AF', margin:'0 0 20px' }}>名前とパスワードでログイン</p>
+        <p style={{ fontSize:12, color:'#9CA3AF', margin:'0 0 24px' }}>ログインして情報を提供・更新できます</p>
 
-        {/* ログインモード切り替え */}
-        <div style={{ display:'flex', gap:6, marginBottom:20 }}>
-          {(['contributor','admin'] as const).map(m => (
-            <button key={m} onClick={() => { setLoginMode(m); setLoginError('') }}
-              style={{ flex:1, padding:'8px', borderRadius:8, cursor:'pointer', fontSize:12,
-                border:`1.5px solid ${loginMode===m ? '#3B82F6' : '#E5E7EB'}`,
-                background: loginMode===m ? '#EFF6FF' : 'white',
-                color: loginMode===m ? '#1D4ED8' : '#6B7280', fontWeight: loginMode===m ? 700 : 400 }}>
-              {m === 'admin' ? '👑 管理者' : '✏️ 情報提供者'}
-            </button>
-          ))}
+        {/* Clerkログイン（メイン） */}
+        <div style={{ marginBottom:20 }}>
+          <p style={{ fontSize:11, fontWeight:700, color:'#6B7280', margin:'0 0 8px' }}>Clerkアカウントをお持ちの方</p>
+          {!isLoaded ? (
+            <p style={{ fontSize:12, color:'#9CA3AF' }}>読み込み中...</p>
+          ) : user ? (
+            <div style={{ background:'#F0FDF4', border:'1px solid #BBF7D0', borderRadius:10, padding:'12px 14px', display:'flex', alignItems:'center', gap:10 }}>
+              <div style={{ width:36, height:36, borderRadius:'50%', background:'#16A34A', display:'flex', alignItems:'center', justifyContent:'center', color:'white', fontSize:14, fontWeight:700, flexShrink:0 }}>
+                {(user.fullName ?? user.username ?? '?').slice(0,1).toUpperCase()}
+              </div>
+              <div style={{ flex:1 }}>
+                <p style={{ fontSize:13, fontWeight:700, color:'#15803D', margin:'0 0 2px' }}>{user.fullName ?? user.username}</p>
+                <p style={{ fontSize:11, color:'#16A34A', margin:0 }}>{user.emailAddresses[0]?.emailAddress}</p>
+              </div>
+              <button onClick={handleClerkLogin}
+                style={{ padding:'7px 14px', borderRadius:8, border:'none', background:'#16A34A', color:'white', fontSize:12, fontWeight:700, cursor:'pointer' }}>
+                このアカウントで入る
+              </button>
+            </div>
+          ) : (
+            <SignInButton mode="modal">
+              <button style={{ width:'100%', padding:'11px', borderRadius:8, border:'1.5px solid #E5E7EB', background:'white', fontSize:13, fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
+                <span style={{ fontSize:16 }}>🔐</span> Clerkでログイン
+              </button>
+            </SignInButton>
+          )}
         </div>
 
-        {/* contributor: テキスト入力 */}
-        {loginMode === 'contributor' && (
-          <div style={{ marginBottom:12 }}>
-            <Label text="あなたの名前" />
-            <input
-              placeholder="名前を入力（例: 山田太郎）"
-              value={nameInput}
-              onChange={e => setNameInput(e.target.value)}
-              style={inp}
-            />
+        {/* 区切り */}
+        <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:20 }}>
+          <div style={{ flex:1, height:1, background:'#E5E7EB' }} />
+          <span style={{ fontSize:11, color:'#9CA3AF' }}>または</span>
+          <div style={{ flex:1, height:1, background:'#E5E7EB' }} />
+        </div>
+
+        {/* パスワードログイン（外部協力者向け） */}
+        <div>
+          <p style={{ fontSize:11, fontWeight:700, color:'#6B7280', margin:'0 0 8px' }}>Clerkアカウントをお持ちでない方（外部協力者）</p>
+          <div style={{ display:'flex', gap:6, marginBottom:12 }}>
+            {(['contributor','admin'] as const).map(m => (
+              <button key={m} onClick={() => { setLoginMode(m); setLoginError('') }}
+                style={{ flex:1, padding:'7px', borderRadius:7, cursor:'pointer', fontSize:11,
+                  border:`1.5px solid ${loginMode===m ? '#3B82F6' : '#E5E7EB'}`,
+                  background: loginMode===m ? '#EFF6FF' : 'white',
+                  color: loginMode===m ? '#1D4ED8' : '#6B7280', fontWeight: loginMode===m ? 700 : 400 }}>
+                {m === 'admin' ? '👑 管理者' : '✏️ 情報提供者'}
+              </button>
+            ))}
           </div>
-        )}
 
-        {/* admin: プルダウン or 新規追加 */}
-        {loginMode === 'admin' && (
-          <div style={{ marginBottom:12 }}>
-            <Label text="管理者名" />
-            {!showNewAdmin ? (
-              <div style={{ display:'flex', gap:8 }}>
-                <select value={adminSelect} onChange={e => setAdminSelect(e.target.value)}
-                  style={{ ...sel, flex:1 }}>
-                  <option value="">── 選択してください ──</option>
-                  {adminNames.map(n => <option key={n} value={n}>{n}</option>)}
-                </select>
-                <button onClick={() => { setShowNewAdmin(true); setAdminSelect('') }}
-                  style={{ padding:'9px 12px', borderRadius:8, border:'1px solid #E5E7EB', background:'white', fontSize:12, cursor:'pointer', whiteSpace:'nowrap' }}>
-                  ＋ 新規
-                </button>
-              </div>
-            ) : (
-              <div style={{ display:'flex', gap:8 }}>
-                <input placeholder="新しい管理者名" value={newAdminName}
-                  onChange={e => setNewAdminName(e.target.value)}
-                  style={{ ...inp, flex:1 }} />
-                <button onClick={() => { setShowNewAdmin(false); setNewAdminName('') }}
-                  style={{ padding:'9px 12px', borderRadius:8, border:'1px solid #E5E7EB', background:'white', fontSize:12, cursor:'pointer', whiteSpace:'nowrap' }}>
-                  戻る
-                </button>
-              </div>
-            )}
-          </div>
-        )}
+          {loginMode === 'contributor' && (
+            <div style={{ marginBottom:10 }}>
+              <input placeholder="名前を入力（例: 山田太郎）" value={nameInput}
+                onChange={e => setNameInput(e.target.value)} style={inp} />
+            </div>
+          )}
+          {loginMode === 'admin' && (
+            <div style={{ marginBottom:10 }}>
+              {!showNewAdmin ? (
+                <div style={{ display:'flex', gap:8 }}>
+                  <select value={adminSelect} onChange={e => setAdminSelect(e.target.value)} style={{ ...sel, flex:1 }}>
+                    <option value="">── 選択してください ──</option>
+                    {adminNames.map(n => <option key={n} value={n}>{n}</option>)}
+                  </select>
+                  <button onClick={() => { setShowNewAdmin(true); setAdminSelect('') }}
+                    style={{ padding:'9px 12px', borderRadius:8, border:'1px solid #E5E7EB', background:'white', fontSize:12, cursor:'pointer', whiteSpace:'nowrap' }}>
+                    ＋ 新規
+                  </button>
+                </div>
+              ) : (
+                <div style={{ display:'flex', gap:8 }}>
+                  <input placeholder="新しい管理者名" value={newAdminName}
+                    onChange={e => setNewAdminName(e.target.value)} style={{ ...inp, flex:1 }} />
+                  <button onClick={() => { setShowNewAdmin(false); setNewAdminName('') }}
+                    style={{ padding:'9px 12px', borderRadius:8, border:'1px solid #E5E7EB', background:'white', fontSize:12, cursor:'pointer', whiteSpace:'nowrap' }}>
+                    戻る
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
-        {/* パスワード */}
-        <Label text="パスワード" />
-        <input type="password" placeholder="パスワード" value={pw}
-          onChange={e => setPw(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && handleLogin()}
-          style={{ ...inp, marginBottom:8, borderColor: loginError ? '#EF4444' : '#E5E7EB' }} />
-        {loginError && <p style={{ fontSize:12, color:'#EF4444', margin:'0 0 8px' }}>{loginError}</p>}
-
-        <button onClick={handleLogin}
-          style={{ width:'100%', padding:'10px', borderRadius:8, border:'none', background:'#1D4ED8', color:'white', fontSize:14, fontWeight:700, cursor:'pointer' }}>
-          ログイン
-        </button>
+          <input type="password" placeholder="パスワード" value={pw}
+            onChange={e => setPw(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleLogin()}
+            style={{ ...inp, marginBottom:8, borderColor: loginError ? '#EF4444' : '#E5E7EB' }} />
+          {loginError && <p style={{ fontSize:12, color:'#EF4444', margin:'0 0 8px' }}>{loginError}</p>}
+          <button onClick={handleLogin}
+            style={{ width:'100%', padding:'10px', borderRadius:8, border:'none', background:'#6B7280', color:'white', fontSize:13, fontWeight:700, cursor:'pointer' }}>
+            パスワードでログイン
+          </button>
+        </div>
       </div>
     </main>
   )
@@ -457,14 +503,20 @@ export default function AdminDataPage() {
           <span style={{ fontSize:15, fontWeight:800 }}>📥 データ投入</span>
           <span style={{ fontSize:11, color:'#9CA3AF', marginLeft:8 }}>研究室DBの更新</span>
         </div>
-        <div style={{ display:'flex', gap:6, alignItems:'center' }}>
+        <div style={{ display:'flex', gap:6, alignItems:'center', flexWrap:'wrap' }}>
+          {/* ロールバッジ */}
           <span style={{ fontSize:12, padding:'4px 10px', borderRadius:20,
-            background: isAdmin ? '#EFF6FF' : '#F0FDF4',
-            color: isAdmin ? '#1D4ED8' : '#16A34A',
-            border: `1px solid ${isAdmin ? '#BFDBFE' : '#BBF7D0'}`,
-            fontWeight:700 }}>
-            {isAdmin ? '👑' : '✏️'} {userName}
+            background: roleBadge.bg, color: roleBadge.color,
+            border: `1px solid ${roleBadge.border}`, fontWeight:700 }}>
+            {roleBadge.icon} {userName}
           </span>
+          {/* superadmin: メンバー管理 */}
+          {isSuperAdmin && (
+            <a href="/admin/data/members" style={{ fontSize:12, color:'#7C3AED', textDecoration:'none', padding:'5px 10px', borderRadius:7, border:'1px solid #DDD6FE', background:'#F5F3FF', fontWeight:600 }}>
+              👥 メンバー管理
+            </a>
+          )}
+          {/* admin以上: 承認待ち確認 */}
           {isAdmin && (
             <a href="/admin/data/review" style={{ fontSize:12, color:'#D97706', textDecoration:'none', padding:'5px 10px', borderRadius:7, border:'1px solid #FDE68A', background:'#FFFBEB', fontWeight:600 }}>
               📋 承認待ち確認
@@ -475,6 +527,7 @@ export default function AdminDataPage() {
         </div>
       </header>
 
+      {/* contributorへの案内バナー */}
       {!isAdmin && (
         <div style={{ background:'#FFFBEB', borderBottom:'1px solid #FDE68A', padding:'10px 16px', textAlign:'center' }}>
           <p style={{ fontSize:12, color:'#92400E', margin:0 }}>
