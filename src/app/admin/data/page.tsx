@@ -91,7 +91,7 @@ export default function AdminDataPage() {
   async function fetchCurrentVal(id: string, field: string, tbl: 'lab' | 'faculty') {
     const table = tbl === 'lab' ? 'labs' : 'faculties'
     const { data } = await sb.from(table).select(field).eq('id', id).single()
-    setCurrentVal(data?.[field] ?? '')
+    setCurrentVal((data as Record<string, string> | null)?.[field] ?? '')
   }
 
   // ─ フィルタ
