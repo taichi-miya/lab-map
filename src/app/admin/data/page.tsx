@@ -241,7 +241,6 @@ export default function AdminDataPage() {
 
   // ── 保存
   async function handleSave() {
-    // レート制限
     if (saveBlocked) return alert('短時間に保存が多すぎます。少し待ってから試してください。')
     const newCount = saveCount + 1
     setSaveCount(newCount)
@@ -280,7 +279,6 @@ export default function AdminDataPage() {
       } else if (target === 'lab') {
         // ── 研究室フィールド
         const def = LAB_FIELDS[labFieldKey]
-        // URL系は urlInput を直接、テキスト系は aiResult or manualText
         const saveValue = def.isUrl
           ? urlInput.trim()
           : (inputMode === 'manual' ? manualText.trim() : (aiResult.trim() || urlInput.trim()))
@@ -298,8 +296,9 @@ export default function AdminDataPage() {
             return alert('同じURLがすでに登録されています')
           }
           const updated = [...existing, saveValue]
+          // ※ JSON.stringify不要：Supabaseクライアントが配列をjsonbとして送る
           await sb.from('labs')
-            .update({ [def.col]: JSON.stringify(updated), updated_at: now })
+            .update({ [def.col]: updated, updated_at: now })
             .eq('id', labId)
         } else {
           // 通常フィールド → 上書き
@@ -587,7 +586,7 @@ export default function AdminDataPage() {
                   <p style={{ fontSize:12, color:'#6B7280', margin:'0 0 8px', lineHeight:1.6 }}>
                     URLをそのまま貼り付けてください。
                     {MULTI_FIELDS.includes(labFieldKey) && (
-                      <span style={{ color:'#3B82F6', fontWeight:600 }}> （複数登録可）</span>
+                      <span style={{ color:'#3B82F6', fontWeight:600 }}> （複数登録可・1件ずつ保存）</span>
                     )}
                   </p>
                   <input type="url" placeholder="https://..." value={urlInput}
