@@ -237,7 +237,7 @@ export default function AdminDataPage() {
     return contributor
   }
 
-  // ── 保存
+// ── 保存
   async function handleSave() {
     // レート制限
     if (saveBlocked) return alert('短時間に保存が多すぎます。少し待ってから試してください。')
@@ -255,11 +255,18 @@ export default function AdminDataPage() {
     const now = new Date().toISOString()
     setLoading(true)
 
+    // 複数OKなフィールド（jsonb配列に追記するもの）
+    const MULTI_FIELDS = ['youtube_video_urls', 'instagram_url_other', 'twitter_url_other']
+
     try {
       const logValue = inputMode === 'manual' ? manualText : (aiResult || urlInput)
 
       if (target === 'faculty' && facFieldKey === 'publication') {
-        if (!pubTitle.trim() && !pubDoi.trim()) { setLoading(false); return alert('タイトルまたはDOIを入力してください') }
+        // ── 出版物
+        if (!pubTitle.trim() && !pubDoi.trim()) {
+          setLoading(false)
+          return alert('タイトルまたはDOIを入力してください')
+        }
         const { data: pub } = await sb.from('publications').insert({
           type: pubType, title: pubTitle, doi: pubDoi || null,
           isbn: pubIsbn || null, publisher: pubPublisher || null,
@@ -272,17 +279,64 @@ export default function AdminDataPage() {
             faculty_id: facId, added_by: by, added_at: now,
           })
         }
+
       } else if (target === 'lab') {
+        // ── 研究室フィールド
         const def = LAB_FIELDS[labFieldKey]
         if (!logValue.trim()) { setLoading(false); return alert('内容を入力してください') }
-        const update: Record<string, unknown> = { [def.col]: logValue, updated_at: now }
-        if (def.hasSource && sourceUrl) update['summary_source_url'] = sourceUrl
-        if (def.hasYear && yearVal) {
-          update['student_count_year']   = yearVal
-          update['student_count_source'] = sourceUrl
+
+        // old_value を取得
+        const { data: current } = await sb.from('labs').select(def.col).eq('id', labId).single()
+        const oldVal = (current as Record<string, string> | null)?.[def.col] ?? ''
+
+        if (MULTI_FIELDS.includes(labFieldKey)) {
+          // 複数OKなフィールド → 配列に追記
+          const existing: string[] = Array.isArray(oldVal) ? oldVal : (oldVal ? JSON.parse(oldVal) : [])
+          if (existing.includes(logValue)) {
+            setLoading(false)
+            return alert('同じURLがすでに登録されています')
+          }
+          const updated = [...existing, logValue]
+          await sb.from('labs').update({ [def.col]: updated, updated_at: now }).eq('id', labId)
+        } else {
+          // 通常フィールド → 上書き
+          const update: Record<string, unknown> = { [def.col]: logValue, updated_at: now }
+          if (def.hasSource && sourceUrl) update['summary_source_url'] = sourceUrl
+          if (def.hasYear && yearVal) {
+            update['student_count_year']   = yearVal
+            update['student_count_source'] = sourceUrl
+          }
+          await sb.from('labs').update(update).eq('id', labId)
         }
-        await sb.from('labs').update(update).eq('id', labId)
+
+        // ── ログ記録
+        const logField = LAB_FIELDS[labFieldKey]?.label
+        const logLab   = labs.find(l => l.id === labId)
+        await sb.from('admin_logs').insert({
+          target_type: 'lab',
+          target_id:   labId,
+          lab_id:      labId,
+          field:       labFieldKey,
+          old_value:   MULTI_FIELDS.includes(labFieldKey) ? null : (oldVal.length > 1000 ? oldVal.slice(0, 1000) + '…' : oldVal),
+          new_value:   logValue,
+          contributor: by,
+        })
+
+        // ── Discord通知
+        await fetch('/api/admin/notify', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            targetType:  'lab',
+            labName:     logLab?.name ?? '',
+            fieldLabel:  logField ?? '',
+            newValue:    logValue,
+            oldValue:    MULTI_FIELDS.includes(labFieldKey) ? null : oldVal,
+            contributor: by,
+          }),
+        })
+
       } else {
+        // ── 教員フィールド
         const def = FACULTY_FIELDS[facFieldKey]
         let value = logValue
         if (def.col === 'researchmap_id' && value.includes('researchmap.jp/'))
@@ -290,36 +344,40 @@ export default function AdminDataPage() {
         if (['x_username', 'instagram_username'].includes(facFieldKey))
           value = value.replace(/^@/, '')
         if (!value.trim()) { setLoading(false); return alert('内容を入力してください') }
+
+        // old_value を取得
+        const { data: current } = await sb.from('faculties').select(def.col).eq('id', facId).single()
+        const oldVal = (current as Record<string, string> | null)?.[def.col] ?? ''
+
         await sb.from('faculties').update({ [def.col]: value, updated_at: now }).eq('id', facId)
-      }
 
-      // ── 操作ログ記録
-      const logField = target === 'lab'
-        ? LAB_FIELDS[labFieldKey]?.label
-        : FACULTY_FIELDS[facFieldKey]?.label
-      const logLab = labs.find(l => l.id === labId)
-
-      await sb.from('admin_logs').insert({
-        target_type: target,
-        target_id:   target === 'faculty' ? facId : labId,
-        lab_id:      labId,
-        field:       target === 'lab' ? labFieldKey : facFieldKey,
-        new_value:   isPub ? `[出版物] ${pubTitle}` : logValue,
-        contributor: by,
-      })
-
-      // ── Discord通知
-      await fetch('/api/admin/notify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          targetType:  target,
-          labName:     logLab?.name ?? '',
-          fieldLabel:  logField ?? '',
-          newValue:    isPub ? `[出版物] ${pubTitle}` : logValue,
+        // ── ログ記録
+        const logField = FACULTY_FIELDS[facFieldKey]?.label
+        const logLab   = labs.find(l => l.id === labId)
+        const logFac   = faculties.find(f => f.id === facId)
+        await sb.from('admin_logs').insert({
+          target_type: 'faculty',
+          target_id:   facId,
+          lab_id:      labId,
+          field:       facFieldKey,
+          old_value:   oldVal,
+          new_value:   value,
           contributor: by,
-        }),
-      })
+        })
+
+        // ── Discord通知
+        await fetch('/api/admin/notify', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            targetType:  'faculty',
+            labName:     `${logLab?.name ?? ''} / ${logFac?.name ?? ''}`,
+            fieldLabel:  logField ?? '',
+            newValue:    value,
+            oldValue:    oldVal,
+            contributor: by,
+          }),
+        })
+      }
 
       setSaved(true)
       setTimeout(() => {
