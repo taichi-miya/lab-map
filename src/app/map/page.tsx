@@ -1221,12 +1221,14 @@ export default function ExplorePage() {
                           </div>
                         )}
                       </div>
+                      
                       <div style={{ padding: '5px 14px 3px', fontSize: 10, fontWeight: 700, color: '#8FA1AE', letterSpacing: '0.06em', fontFamily: "'Sora',sans-serif" }}>メニュー</div>
                       {[
-                        { href: '/cards', icon: '☰', title: 'カード一覧', sub: 'リスト形式で閲覧' },
-                        { href: '/contact?type=correction', icon: '📝', title: '情報修正依頼', sub: '研究室情報の誤りを報告' },
-                        { href: '/contact?type=feature', icon: '💡', title: '新機能を要望する', sub: 'アイデアを送る' },
-                        { href: '/contact', icon: '💬', title: 'お問い合わせ', sub: '不具合報告・ご意見など' },
+                         { href: '/cards', icon: '☰', title: 'カード一覧', sub: 'リスト形式で閲覧' },
+                         { href: '/contribute', icon: '📬', title: '情報を提供する', sub: '研究室の情報を追加・更新' },
+                         { href: '/contact?type=correction', icon: '📝', title: '情報修正依頼', sub: '研究室情報の誤りを報告' },
+                         { href: '/contact?type=feature', icon: '💡', title: '新機能を要望する', sub: 'アイデアを送る' },
+                         { href: '/contact', icon: '💬', title: 'お問い合わせ', sub: '不具合報告・ご意見など' },
                       ].map(item => (
                         <Link key={item.href} href={item.href} onClick={() => setMenuOpen(false)} className="menu-item"
                           style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 14px', textDecoration: 'none', color: '#1F2D3D', transition: 'background 0.1s' }}>
