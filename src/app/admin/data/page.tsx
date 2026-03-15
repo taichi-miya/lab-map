@@ -16,45 +16,40 @@ type PubType    = 'paper' | 'book' | 'other'
 
 // ── 研究室フィールド定義 ─────────────────────────────────────────
 type LabFieldDef = {
-  label:     string
-  col:       string
-  group:     'basic' | 'sns'
+  label:      string
+  col:        string
+  group:      'basic' | 'sns'
   hasSource?: boolean
   hasYear?:   boolean
   isUrl?:     boolean
   isImage?:   boolean
 }
 const LAB_FIELDS: Record<string, LabFieldDef> = {
-  // 基本情報
-  summary_text:        { label:'📝 研究概要テキスト（HPから）',         col:'summary_text',          group:'basic', hasSource:true },
-  summary_text_image:  { label:'📷 研究概要テキスト（スクショから）',   col:'summary_text',          group:'basic', hasSource:true, isImage:true },
-  lab_url:             { label:'🔗 公式HPのURL',                       col:'lab_url',               group:'basic', isUrl:true },
-  intro_url:           { label:'🔗 紹介ページのURL（研究科HP等）',      col:'intro_url',             group:'basic', isUrl:true },
-  faculty_name:        { label:'👤 教員名',                            col:'faculty_name',          group:'basic', hasSource:true },
-  student_count:       { label:'👥 学生数（年度・出典つき）',           col:'student_count',         group:'basic', hasSource:true, hasYear:true },
-  // SNS・動画
-  instagram_url:       { label:'📷 公式 Instagram URL',               col:'instagram_url',         group:'sns', isUrl:true },
-  twitter_url:         { label:'🐦 公式 X（Twitter）URL',             col:'twitter_url',           group:'sns', isUrl:true },
-  youtube_channel_url: { label:'▶️  公式 YouTube チャンネル URL',      col:'youtube_channel_url',   group:'sns', isUrl:true },
-  youtube_video_urls:  { label:'▶️  紹介 YouTube 動画 URL（非公式）',  col:'youtube_video_urls',    group:'sns', isUrl:true },
-  instagram_url_other: { label:'📷 紹介 Instagram URL（非公式）',      col:'instagram_url_other',   group:'sns', isUrl:true },
-  twitter_url_other:   { label:'🐦 紹介 X URL（非公式）',             col:'twitter_url_other',     group:'sns', isUrl:true },
+  summary_text:        { label:'📝 研究概要テキスト（HPから）',           col:'summary_text',        group:'basic', hasSource:true },
+  summary_text_image:  { label:'📷 研究概要テキスト（スクショから）',     col:'summary_text',        group:'basic', hasSource:true, isImage:true },
+  lab_url:             { label:'🔗 公式HPのURL',                         col:'lab_url',             group:'basic', isUrl:true },
+  intro_url:           { label:'🔗 紹介ページのURL（研究科HP等）',        col:'intro_url',           group:'basic', isUrl:true },
+  faculty_name:        { label:'👤 教員名',                              col:'faculty_name',        group:'basic', hasSource:true },
+  student_count:       { label:'👥 学生数（年度・出典つき）',             col:'student_count',       group:'basic', hasSource:true, hasYear:true },
+  instagram_url:       { label:'📷 公式 Instagram URL',                 col:'instagram_url',       group:'sns',   isUrl:true },
+  twitter_url:         { label:'🐦 公式 X（Twitter）URL',               col:'twitter_url',         group:'sns',   isUrl:true },
+  youtube_channel_url: { label:'▶️  公式 YouTube チャンネル URL',        col:'youtube_channel_url', group:'sns',   isUrl:true },
+  youtube_video_urls:  { label:'▶️  紹介 YouTube 動画 URL（非公式）',    col:'youtube_video_urls',  group:'sns',   isUrl:true },
+  instagram_url_other: { label:'📷 紹介 Instagram URL（非公式）',        col:'instagram_url_other', group:'sns',   isUrl:true },
+  twitter_url_other:   { label:'🐦 紹介 X URL（非公式）',               col:'twitter_url_other',   group:'sns',   isUrl:true },
 }
 
 // ── 教員フィールド定義 ─────────────────────────────────────────
 type FacultyFieldDef = { label: string; col: string; group: 'sns' | 'research'; isUrl?: boolean; hint?: string }
 const FACULTY_FIELDS: Record<string, FacultyFieldDef> = {
-  // SNS
   instagram_username: { label:'📷 Instagram アカウント名（@以下）', col:'instagram_url',  group:'sns',      hint:'例: tohoku_lab_abc' },
   x_username:         { label:'🐦 X アカウント名（@以下）',         col:'x_username',     group:'sns',      hint:'例: tohoku_lab_abc' },
   instagram_url:      { label:'📷 Instagram の URL',               col:'instagram_url',  group:'sns',      isUrl:true },
   twitter_url:        { label:'🐦 X（Twitter）の URL',             col:'twitter_url',    group:'sns',      isUrl:true },
-  // 研究情報
   researchmap:        { label:'🔬 researchmap の URL',             col:'researchmap_id', group:'research', isUrl:true, hint:'URLを貼るとIDを自動抽出します' },
   publication:        { label:'📄 論文・著書を追加',                col:'__pub__',        group:'research' },
 }
 
-const PW   = process.env.NEXT_PUBLIC_ADMIN_PASSWORD ?? 'admin2024'
 const font = "system-ui,'Noto Sans JP',sans-serif"
 const card: React.CSSProperties = {
   background:'white', border:'1px solid #E5E7EB', borderRadius:12,
@@ -76,65 +71,65 @@ function Label({ text, hint }: { text: string; hint?: string }) {
   )
 }
 
-// ── モード選択ボタン ─────────────────────────────────────────────
-function ModeBtn({
-  active, onClick, icon, title, desc,
-}: { active: boolean; onClick: () => void; icon: string; title: string; desc: string }) {
+function ModeBtn({ active, onClick, icon, title, desc }: {
+  active: boolean; onClick: () => void; icon: string; title: string; desc: string
+}) {
   return (
     <button onClick={onClick} style={{
       padding:'10px 12px', borderRadius:8, cursor:'pointer', textAlign:'left', width:'100%',
       border:`1.5px solid ${active ? '#3B82F6' : '#E5E7EB'}`,
       background: active ? '#EFF6FF' : 'white',
     }}>
-      <p style={{ fontSize:13, fontWeight:active ? 700 : 500, color: active ? '#1D4ED8' : '#374151', margin:'0 0 2px' }}>
+      <p style={{ fontSize:13, fontWeight:active ? 700 : 500, color:active ? '#1D4ED8' : '#374151', margin:'0 0 2px' }}>
         {icon} {title}
       </p>
-      <p style={{ fontSize:11, color: active ? '#3B82F6' : '#9CA3AF', margin:0, lineHeight:1.4 }}>{desc}</p>
+      <p style={{ fontSize:11, color:active ? '#3B82F6' : '#9CA3AF', margin:0, lineHeight:1.4 }}>{desc}</p>
     </button>
   )
 }
 
 // ════════════════════════════════════════════════════════════════
 export default function AdminDataPage() {
-  const [authed,        setAuthed]        = useState(false)
-  const [pw,            setPw]            = useState('')
-  const [labs,          setLabs]          = useState<Lab[]>([])
-  const [query,         setQuery]         = useState('')
-  const [labId,         setLabId]         = useState('')
-  const [target,        setTarget]        = useState<Target>('lab')
-  const [faculties,     setFaculties]     = useState<Faculty[]>([])
-  const [facId,         setFacId]         = useState('')
-  const [labFieldKey,   setLabFieldKey]   = useState('summary_text')
-  const [facFieldKey,   setFacFieldKey]   = useState('researchmap')
-  const [inputMode,     setInputMode]     = useState<InputMode>('url')
-  const [urlInput,      setUrlInput]      = useState('')
-  const [manualText,    setManualText]    = useState('')
-  const [aiResult,      setAiResult]      = useState('')
-  const [imgFile,       setImgFile]       = useState<File | null>(null)
-  const [sourceUrl,     setSourceUrl]     = useState('')
-  const [yearVal,       setYearVal]       = useState('')
-  const [currentVal,    setCurrentVal]    = useState('')
-  const [loading,       setLoading]       = useState(false)
-  const [saved,         setSaved]         = useState(false)
+  const [authed,       setAuthed]       = useState(false)
+  const [pw,           setPw]           = useState('')
+  const [loginError,   setLoginError]   = useState(false)
+  const [labs,         setLabs]         = useState<Lab[]>([])
+  const [query,        setQuery]        = useState('')
+  const [labId,        setLabId]        = useState('')
+  const [target,       setTarget]       = useState<Target>('lab')
+  const [faculties,    setFaculties]    = useState<Faculty[]>([])
+  const [facId,        setFacId]        = useState('')
+  const [labFieldKey,  setLabFieldKey]  = useState('summary_text')
+  const [facFieldKey,  setFacFieldKey]  = useState('researchmap')
+  const [inputMode,    setInputMode]    = useState<InputMode>('url')
+  const [urlInput,     setUrlInput]     = useState('')
+  const [manualText,   setManualText]   = useState('')
+  const [aiResult,     setAiResult]     = useState('')
+  const [imgFile,      setImgFile]      = useState<File | null>(null)
+  const [sourceUrl,    setSourceUrl]    = useState('')
+  const [yearVal,      setYearVal]      = useState('')
+  const [currentVal,   setCurrentVal]   = useState('')
+  const [loading,      setLoading]      = useState(false)
+  const [saved,        setSaved]        = useState(false)
+  const [saveCount,    setSaveCount]    = useState(0)
+  const [saveBlocked,  setSaveBlocked]  = useState(false)
   // 出版物
-  const [pubType,       setPubType]       = useState<PubType>('paper')
-  const [pubTitle,      setPubTitle]      = useState('')
-  const [pubDoi,        setPubDoi]        = useState('')
-  const [pubIsbn,       setPubIsbn]       = useState('')
-  const [pubPublisher,  setPubPublisher]  = useState('')
-  const [pubYear,       setPubYear]       = useState('')
-  const [pubAuthors,    setPubAuthors]    = useState('')
-  const [pubUrl,        setPubUrl]        = useState('')
+  const [pubType,      setPubType]      = useState<PubType>('paper')
+  const [pubTitle,     setPubTitle]     = useState('')
+  const [pubDoi,       setPubDoi]       = useState('')
+  const [pubIsbn,      setPubIsbn]      = useState('')
+  const [pubPublisher, setPubPublisher] = useState('')
+  const [pubYear,      setPubYear]      = useState('')
+  const [pubAuthors,   setPubAuthors]   = useState('')
+  const [pubUrl,       setPubUrl]       = useState('')
   // 更新者
-  const [contributors,  setContributors]  = useState<string[]>([])
-  const [contributor,   setContributor]   = useState('')
-  const [showNewC,      setShowNewC]      = useState(false)
-  const [newContrib,    setNewContrib]    = useState('')
+  const [contributors, setContributors] = useState<string[]>([])
+  const [contributor,  setContributor]  = useState('')
+  const [showNewC,     setShowNewC]     = useState(false)
+  const [newContrib,   setNewContrib]   = useState('')
 
-  // ─ 初期ロード
   useEffect(() => { if (authed) { fetchLabs(); fetchContributors() } }, [authed])
 
-  // ─ 研究室変更
   useEffect(() => {
     setFacId(''); setFaculties([]); resetInput()
     if (labId && target === 'faculty') fetchFaculties(labId)
@@ -154,6 +149,21 @@ export default function AdminDataPage() {
   function resetInput() {
     setUrlInput(''); setManualText(''); setAiResult('')
     setImgFile(null); setSourceUrl(''); setYearVal('')
+  }
+
+  // ── ログイン（サーバー側認証）
+  async function handleLogin() {
+    const res = await fetch('/api/admin/auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: pw }),
+    })
+    if (res.ok) {
+      setAuthed(true)
+    } else {
+      setLoginError(true)
+      setTimeout(() => setLoginError(false), 2000)
+    }
   }
 
   async function fetchLabs() {
@@ -181,20 +191,18 @@ export default function AdminDataPage() {
     if (data) setContributors(data.map((d: { name: string }) => d.name))
   }
 
-  // ─ フィルタ（研究室名・教員名・専攻）
   const filtered = labs.filter(l =>
     l.name.includes(query) ||
     (l.faculty_name ?? '').includes(query) ||
     (l.dept ?? '').includes(query)
   )
 
-  // ─ URL → AI 読み取り
   async function handleFetchUrl() {
     if (!urlInput.trim()) return
     setLoading(true); setAiResult('')
     try {
       const res = await fetch('/api/admin/fetch-url', {
-        method:'POST', headers:{ 'Content-Type':'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: urlInput, mode: target, field: target === 'lab' ? labFieldKey : facFieldKey }),
       })
       const d = await res.json()
@@ -203,7 +211,6 @@ export default function AdminDataPage() {
     setLoading(false)
   }
 
-  // ─ スクショ OCR
   async function handleOcr() {
     if (!imgFile) return
     setLoading(true); setAiResult('')
@@ -211,7 +218,7 @@ export default function AdminDataPage() {
     reader.onload = async (e) => {
       const b64 = (e.target?.result as string).split(',')[1]
       const res = await fetch('/api/admin/ocr', {
-        method:'POST', headers:{ 'Content-Type':'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ image: b64, mimeType: imgFile.type }),
       })
       const d = await res.json()
@@ -221,7 +228,6 @@ export default function AdminDataPage() {
     reader.readAsDataURL(imgFile)
   }
 
-  // ─ 更新者を確定
   async function resolveContributor(): Promise<string> {
     if (showNewC && newContrib.trim()) {
       await sb.from('contributors').upsert({ name: newContrib.trim() }, { onConflict: 'name' })
@@ -231,15 +237,27 @@ export default function AdminDataPage() {
     return contributor
   }
 
-  // ─ 保存
+  // ── 保存
   async function handleSave() {
+    // レート制限
+    if (saveBlocked) return alert('短時間に保存が多すぎます。少し待ってから試してください。')
+    const newCount = saveCount + 1
+    setSaveCount(newCount)
+    if (newCount >= 10) {
+      setSaveBlocked(true)
+      setTimeout(() => { setSaveBlocked(false); setSaveCount(0) }, 60_000)
+    }
+
     if (!labId) return alert('研究室を選択してください')
     if (target === 'faculty' && !facId) return alert('教員を選択してください')
+
     const by  = await resolveContributor()
     const now = new Date().toISOString()
     setLoading(true)
 
     try {
+      const logValue = inputMode === 'manual' ? manualText : (aiResult || urlInput)
+
       if (target === 'faculty' && facFieldKey === 'publication') {
         if (!pubTitle.trim() && !pubDoi.trim()) { setLoading(false); return alert('タイトルまたはDOIを入力してください') }
         const { data: pub } = await sb.from('publications').insert({
@@ -256,22 +274,52 @@ export default function AdminDataPage() {
         }
       } else if (target === 'lab') {
         const def = LAB_FIELDS[labFieldKey]
-        const value = inputMode === 'manual' ? manualText : (aiResult || urlInput)
-        if (!value.trim()) { setLoading(false); return alert('内容を入力してください') }
-        const update: Record<string, unknown> = { [def.col]: value, updated_at: now }
+        if (!logValue.trim()) { setLoading(false); return alert('内容を入力してください') }
+        const update: Record<string, unknown> = { [def.col]: logValue, updated_at: now }
         if (def.hasSource && sourceUrl) update['summary_source_url'] = sourceUrl
-        if (def.hasYear && yearVal)    { update['student_count_year'] = yearVal; update['student_count_source'] = sourceUrl }
+        if (def.hasYear && yearVal) {
+          update['student_count_year']   = yearVal
+          update['student_count_source'] = sourceUrl
+        }
         await sb.from('labs').update(update).eq('id', labId)
       } else {
-        const def   = FACULTY_FIELDS[facFieldKey]
-        let   value = inputMode === 'manual' ? manualText : (aiResult || urlInput)
+        const def = FACULTY_FIELDS[facFieldKey]
+        let value = logValue
         if (def.col === 'researchmap_id' && value.includes('researchmap.jp/'))
           value = value.split('researchmap.jp/').pop()?.split('/')[0] ?? value
-        if (['x_username','instagram_username'].includes(facFieldKey))
+        if (['x_username', 'instagram_username'].includes(facFieldKey))
           value = value.replace(/^@/, '')
         if (!value.trim()) { setLoading(false); return alert('内容を入力してください') }
         await sb.from('faculties').update({ [def.col]: value, updated_at: now }).eq('id', facId)
       }
+
+      // ── 操作ログ記録
+      const logField = target === 'lab'
+        ? LAB_FIELDS[labFieldKey]?.label
+        : FACULTY_FIELDS[facFieldKey]?.label
+      const logLab = labs.find(l => l.id === labId)
+
+      await sb.from('admin_logs').insert({
+        target_type: target,
+        target_id:   target === 'faculty' ? facId : labId,
+        lab_id:      labId,
+        field:       target === 'lab' ? labFieldKey : facFieldKey,
+        new_value:   isPub ? `[出版物] ${pubTitle}` : logValue,
+        contributor: by,
+      })
+
+      // ── Discord通知
+      await fetch('/api/admin/notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          targetType:  target,
+          labName:     logLab?.name ?? '',
+          fieldLabel:  logField ?? '',
+          newValue:    isPub ? `[出版物] ${pubTitle}` : logValue,
+          contributor: by,
+        }),
+      })
 
       setSaved(true)
       setTimeout(() => {
@@ -279,6 +327,7 @@ export default function AdminDataPage() {
         setPubTitle(''); setPubDoi(''); setPubIsbn(''); setPubPublisher('')
         setPubYear(''); setPubAuthors(''); setPubUrl('')
       }, 2000)
+
     } finally { setLoading(false) }
   }
 
@@ -287,10 +336,8 @@ export default function AdminDataPage() {
   const isPub   = target === 'faculty' && facFieldKey === 'publication'
   const isUrl   = target === 'lab' ? !!labDef?.isUrl : !!facDef?.isUrl
   const isImage = target === 'lab' ? !!labDef?.isImage : false
-  // URL系フィールドは inputMode 選択不要（URLを直接貼るだけ）
-  const showModeSelect = !isUrl && !isPub
 
-  // ── ログイン ─────────────────────────────────────────────────
+  // ── ログイン画面
   if (!authed) return (
     <main style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:'#F9FAFB', fontFamily:font }}>
       <div style={{ background:'white', borderRadius:16, padding:'32px 28px', width:320, border:'1px solid #E5E7EB' }}>
@@ -298,9 +345,12 @@ export default function AdminDataPage() {
         <p style={{ fontSize:12, color:'#9CA3AF', margin:'0 0 20px' }}>管理者パスワードでログイン</p>
         <input type="password" placeholder="パスワード" value={pw}
           onChange={e => setPw(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && (pw === PW ? setAuthed(true) : alert('パスワードが違います'))}
-          style={{ ...inp, marginBottom:10 }} />
-        <button onClick={() => pw === PW ? setAuthed(true) : alert('パスワードが違います')}
+          onKeyDown={e => e.key === 'Enter' && handleLogin()}
+          style={{ ...inp, marginBottom:8, borderColor: loginError ? '#EF4444' : '#E5E7EB' }} />
+        {loginError && (
+          <p style={{ fontSize:12, color:'#EF4444', margin:'0 0 8px' }}>パスワードが違います</p>
+        )}
+        <button onClick={handleLogin}
           style={{ width:'100%', padding:'10px', borderRadius:8, border:'none', background:'#1D4ED8', color:'white', fontSize:14, fontWeight:700, cursor:'pointer' }}>
           ログイン
         </button>
@@ -308,7 +358,7 @@ export default function AdminDataPage() {
     </main>
   )
 
-  // ── メイン ───────────────────────────────────────────────────
+  // ── メイン画面
   return (
     <main style={{ minHeight:'100vh', background:'#F9FAFB', fontFamily:font }}>
       <header style={{ background:'white', borderBottom:'1px solid #E5E7EB', padding:'12px 16px', display:'flex', alignItems:'center', justifyContent:'space-between', position:'sticky', top:0, zIndex:10 }}>
@@ -330,7 +380,7 @@ export default function AdminDataPage() {
           <input placeholder="研究室名・教員名・専攻で絞り込み" value={query}
             onChange={e => setQuery(e.target.value)} style={{ ...inp, marginBottom:8 }} />
           <select value={labId}
-            onChange={e => { setLabId(e.target.value); setPreviewAndInput() }}
+            onChange={e => { setLabId(e.target.value); resetInput() }}
             style={sel}>
             <option value="">── 研究室を選んでください（{filtered.length}件） ──</option>
             {filtered.map(l => (
@@ -343,7 +393,7 @@ export default function AdminDataPage() {
 
         {labId && (<>
 
-          {/* ② 対象：研究室 or 教員 */}
+          {/* ② 対象 */}
           <div style={card}>
             <Label text="② 何の情報を更新しますか？" />
             <div style={{ display:'flex', gap:8 }}>
@@ -359,7 +409,7 @@ export default function AdminDataPage() {
             </div>
           </div>
 
-          {/* 教員選択（教員モードのみ） */}
+          {/* 教員選択 */}
           {target === 'faculty' && (
             <div style={card}>
               <Label text="③-a どの教員の情報ですか？" />
@@ -379,7 +429,7 @@ export default function AdminDataPage() {
             </div>
           )}
 
-          {/* ③ 何の情報か（フィールド選択） */}
+          {/* ③ フィールド選択 */}
           {(target === 'lab' || (target === 'faculty' && facId)) && (
             <div style={card}>
               <Label text={target === 'lab' ? '③ どの情報を追加・更新しますか？' : '③-b どの情報を追加・更新しますか？'} />
@@ -416,12 +466,10 @@ export default function AdminDataPage() {
                 </select>
               )}
 
-              {/* ヒント */}
               {target === 'faculty' && facDef?.hint && (
                 <p style={{ fontSize:11, color:'#9CA3AF', margin:'6px 0 0' }}>💡 {facDef.hint}</p>
               )}
 
-              {/* 現在の値 */}
               {currentVal && !isPub && (
                 <div style={{ marginTop:10, background:'#F9FAFB', borderRadius:8, padding:'8px 10px', border:'1px solid #E5E7EB' }}>
                   <p style={{ fontSize:10, color:'#9CA3AF', margin:'0 0 3px', fontWeight:700 }}>現在保存されている値</p>
@@ -438,7 +486,7 @@ export default function AdminDataPage() {
             <div style={card}>
               <Label text="④ 情報をどうやって入力しますか？" />
 
-              {/* 出版物フォーム */}
+              {/* 出版物 */}
               {isPub ? (
                 <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
                   <div style={{ display:'flex', gap:8 }}>
@@ -466,7 +514,7 @@ export default function AdminDataPage() {
                 </div>
 
               ) : isUrl ? (
-                /* URL系：そのまま貼るだけ */
+                /* URL直接貼り付け */
                 <div>
                   <p style={{ fontSize:12, color:'#6B7280', margin:'0 0 8px', lineHeight:1.6 }}>
                     URLをそのまま貼り付けてください。
@@ -476,42 +524,29 @@ export default function AdminDataPage() {
                 </div>
 
               ) : (<>
-                {/* テキスト系：3モード切り替え */}
-                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:8, marginBottom:14 }}>
-                  <ModeBtn
-                    active={inputMode==='url'}
-                    onClick={() => setInputMode('url')}
-                    icon="🔗"
-                    title="URLから取得"
-                    desc="HPのURLを貼ると、AIが内容を読んでテキストを自動で取り出します"
-                  />
+                {/* テキスト系：3モード */}
+                <div style={{ display:'grid', gridTemplateColumns: isImage ? '1fr 1fr 1fr' : '1fr 1fr', gap:8, marginBottom:14 }}>
+                  <ModeBtn active={inputMode==='url'} onClick={() => setInputMode('url')}
+                    icon="🔗" title="URLから取得"
+                    desc="HPのURLを貼ると、AIが内容を読んでテキストを自動で取り出します" />
                   {isImage && (
-                    <ModeBtn
-                      active={inputMode==='screenshot'}
-                      onClick={() => setInputMode('screenshot')}
-                      icon="📸"
-                      title="画像から取得"
-                      desc="スクショをアップすると、AIが画像の文字を読み取ります"
-                    />
+                    <ModeBtn active={inputMode==='screenshot'} onClick={() => setInputMode('screenshot')}
+                      icon="📸" title="画像から取得"
+                      desc="スクショをアップすると、AIが画像の文字を読み取ります" />
                   )}
-                  <ModeBtn
-                    active={inputMode==='manual'}
-                    onClick={() => setInputMode('manual')}
-                    icon="✏️"
-                    title="直接入力"
-                    desc="テキストをそのままここに入力します"
-                  />
+                  <ModeBtn active={inputMode==='manual'} onClick={() => setInputMode('manual')}
+                    icon="✏️" title="直接入力"
+                    desc="テキストをそのままここに入力します" />
                 </div>
 
                 {/* URLモード */}
                 {inputMode === 'url' && (
                   <div>
                     <input type="url" placeholder="https://..." value={urlInput}
-                      onChange={e => setUrlInput(e.target.value)}
-                      style={{ ...inp, marginBottom:8 }} />
+                      onChange={e => setUrlInput(e.target.value)} style={{ ...inp, marginBottom:8 }} />
                     <button onClick={handleFetchUrl} disabled={loading || !urlInput.trim()}
-                      style={{ width:'100%', padding:'10px', borderRadius:8, border:'1px solid #D1D5DB',
-                        background: urlInput.trim() ? '#1D4ED8' : '#F3F4F6',
+                      style={{ width:'100%', padding:'10px', borderRadius:8, border:'none',
+                        background: urlInput.trim() ? '#1D4ED8' : '#E5E7EB',
                         color: urlInput.trim() ? 'white' : '#9CA3AF',
                         fontSize:13, fontWeight:600, cursor: (!urlInput.trim() || loading) ? 'not-allowed' : 'pointer' }}>
                       {loading ? '⏳ AIが読み取り中...' : '🤖 AIでテキストを取り出す'}
@@ -532,8 +567,8 @@ export default function AdminDataPage() {
                     <input type="file" accept="image/*" onChange={e => setImgFile(e.target.files?.[0] ?? null)}
                       style={{ fontSize:13, marginBottom:8 }} />
                     <button onClick={handleOcr} disabled={loading || !imgFile}
-                      style={{ width:'100%', padding:'10px', borderRadius:8, border:'1px solid #D1D5DB',
-                        background: imgFile ? '#1D4ED8' : '#F3F4F6',
+                      style={{ width:'100%', padding:'10px', borderRadius:8, border:'none',
+                        background: imgFile ? '#1D4ED8' : '#E5E7EB',
                         color: imgFile ? 'white' : '#9CA3AF',
                         fontSize:13, fontWeight:600, cursor: (!imgFile || loading) ? 'not-allowed' : 'pointer' }}>
                       {loading ? '⏳ 読み取り中...' : '🤖 画像のテキストを読み取る'}
@@ -556,7 +591,7 @@ export default function AdminDataPage() {
                 )}
               </>)}
 
-              {/* 出典URL（hasSource） */}
+              {/* 出典URL */}
               {!isPub && !isUrl && labDef?.hasSource && (
                 <div style={{ marginTop:12, paddingTop:12, borderTop:'1px solid #F3F4F6' }}>
                   <Label text="出典URL（どこから取得した情報か）" hint="任意" />
@@ -565,7 +600,7 @@ export default function AdminDataPage() {
                 </div>
               )}
 
-              {/* 年度（hasYear） */}
+              {/* 年度 */}
               {!isPub && labDef?.hasYear && (
                 <div style={{ marginTop:10 }}>
                   <Label text="何年度の情報ですか？" hint="例: 2024年度" />
@@ -606,12 +641,13 @@ export default function AdminDataPage() {
 
           {/* 保存ボタン */}
           {(target === 'lab' || (target === 'faculty' && facId)) && (
-            <button onClick={handleSave} disabled={loading}
+            <button onClick={handleSave} disabled={loading || saveBlocked}
               style={{ width:'100%', padding:'14px', borderRadius:10, border:'none',
-                background: saved ? '#16A34A' : '#1D4ED8',
+                background: saveBlocked ? '#9CA3AF' : saved ? '#16A34A' : '#1D4ED8',
                 color:'white', fontSize:15, fontWeight:700,
-                cursor: loading ? 'wait' : 'pointer', transition:'background 0.3s' }}>
-              {saved ? '✅ 保存しました！' : loading ? '⏳ 保存中...' : '💾 DBに保存する'}
+                cursor: (loading || saveBlocked) ? 'not-allowed' : 'pointer',
+                transition:'background 0.3s' }}>
+              {saveBlocked ? '🚫 しばらく待ってください' : saved ? '✅ 保存しました！' : loading ? '⏳ 保存中...' : '💾 DBに保存する'}
             </button>
           )}
 
@@ -619,8 +655,4 @@ export default function AdminDataPage() {
       </div>
     </main>
   )
-
-  function setPreviewAndInput() {
-    setUrlInput(''); setManualText(''); setAiResult('')
-  }
 }
