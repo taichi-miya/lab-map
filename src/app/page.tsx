@@ -1631,6 +1631,107 @@ export default function LandingPage() {
         </div>
       </section>
 
+<section className="section" id="contribute">
+        <div className="container">
+          <div className="section-head">
+            <span className="eyebrow">Contribute</span>
+            <h2 className="section-title">あなたの情報で、マップをもっとよくする</h2>
+            <p className="section-sub">
+              Labo Navi は、使ってくれるみなさんの情報提供で育つサービスです。
+              SNSや動画を見つけたら、ぜひ教えてください。
+            </p>
+          </div>
+
+          <div className="feature-grid" style={{ marginBottom: '3rem' }}>
+            {[
+              {
+                icon: '📷',
+                title: 'SNSアカウント',
+                desc: '研究室・教員の公式／非公式のInstagram・X（Twitter）。日々の活動や雰囲気が伝わります。',
+              },
+              {
+                icon: '▶️',
+                title: 'YouTube動画',
+                desc: '研究室紹介や研究解説の動画。公式チャンネルだけでなく、非公式の紹介動画もOKです。',
+              },
+              {
+                icon: '🔬',
+                title: 'researchmap URL',
+                desc: '教員の研究業績が一覧できるページ。論文・著書の確認に役立ちます。',
+              },
+            ].map((item, i) => (
+              <div key={i} className="feature-card">
+                <div className="feature-icon">{item.icon}</div>
+                <h3 className="card-title">{item.title}</h3>
+                <p className="card-text">{item.desc}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="section-head" style={{ marginBottom: '1.5rem' }}>
+            <h3 style={{ fontFamily: "'Sora', sans-serif", fontSize: 'clamp(1.2rem, 2.5vw, 1.5rem)', letterSpacing: '-0.02em', margin: 0 }}>
+              提供の流れ（1〜2分）
+            </h3>
+          </div>
+
+          <div className="steps" style={{ marginBottom: '2.5rem' }}>
+            {[
+              {
+                n: '1',
+                title: '研究室を検索',
+                desc: '研究室名・教員名・専攻名で絞り込んで選択。238件の中からすぐに見つかります。',
+              },
+              {
+                n: '2',
+                title: '情報の種類を選ぶ',
+                desc: 'SNS・動画・HPなど、提供したい情報の種類をプルダウンで選ぶだけ。',
+              },
+              {
+                n: '3',
+                title: 'URLを貼って送信',
+                desc: 'URLをコピペして送信するだけ。アカウント登録不要・匿名でもOK。',
+              },
+            ].map((step, i) => (
+              <div key={i} className="step-card">
+                <div className="step-num">{step.n}</div>
+                <h3>{step.title}</h3>
+                <p>{step.desc}</p>
+              </div>
+            ))}
+          </div>
+
+          <div style={{
+            background: 'rgba(80,70,229,0.05)',
+            border: '1px solid rgba(80,70,229,0.14)',
+            borderRadius: 'var(--radius-lg)',
+            padding: '1.5rem 2rem',
+            marginBottom: '2.5rem',
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: '1rem',
+          }}>
+            <span style={{ fontSize: '1.4rem', flexShrink: 0, marginTop: '2px' }}>💡</span>
+            <div>
+              <p style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text)', margin: '0 0 0.4rem', fontFamily: "'Noto Sans JP', sans-serif" }}>
+                提供した情報はどうなるの？
+              </p>
+              <p style={{ fontSize: '0.875rem', color: 'var(--text-sub)', margin: 0, lineHeight: 1.85, fontFamily: "'Noto Sans JP', sans-serif" }}>
+                送信された情報は管理者が内容を確認した後、研究室の詳細ページやマップに反映されます。個人情報は収集しません。公開されている情報のみご提供ください。
+              </p>
+            </div>
+          </div>
+
+          <div style={{ textAlign: 'center' }}>
+            <Link href="/contribute" className="btn-primary" style={{ fontSize: '1rem', padding: '0 2rem', minHeight: '52px' }}>
+              📬 情報を提供する
+            </Link>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.75rem', fontFamily: "'Noto Sans JP', sans-serif" }}>
+              アカウント登録不要・匿名でもOK
+            </p>
+          </div>
+        </div>
+      </section>
+
       <section className="final-cta">
         <div className="container">
           <div className="final-panel">
