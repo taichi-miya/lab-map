@@ -69,10 +69,19 @@ export default function AdminDataPage() {
   const [authed,       setAuthed]       = useState(false)
   const [userRole,     setUserRole]     = useState<UserRole>('contributor')
   const [userName,     setUserName]     = useState('')
-  const [nameInput,    setNameInput]    = useState('')
+
+  // ── ログイン用 state
+  // contributor: テキスト入力
+  // admin: プルダウン選択 or 新規追加
+  const [nameInput,    setNameInput]    = useState('')   // contributor用テキスト入力
+  const [adminNames,   setAdminNames]   = useState<string[]>([])  // adminプルダウン用
+  const [adminSelect,  setAdminSelect]  = useState('')   // adminプルダウン選択値
+  const [showNewAdmin, setShowNewAdmin] = useState(false) // admin新規追加モード
+  const [newAdminName, setNewAdminName] = useState('')
   const [pw,           setPw]           = useState('')
+  const [loginMode,    setLoginMode]    = useState<'contributor' | 'admin'>('contributor')
   const [loginError,   setLoginError]   = useState('')
-  const [allNames,     setAllNames]     = useState<string[]>([])
+
   const [labs,         setLabs]         = useState<Lab[]>([])
   const [query,        setQuery]        = useState('')
   const [labId,        setLabId]        = useState('')
@@ -103,8 +112,8 @@ export default function AdminDataPage() {
   const [pubAuthors,   setPubAuthors]   = useState('')
   const [pubUrl,       setPubUrl]       = useState('')
 
-  useEffect(() => { fetchAllNames() }, [])
-  useEffect(() => { if (authed) { fetchLabs() } }, [authed])
+  useEffect(() => { fetchAdminNames() }, [])
+  useEffect(() => { if (authed) fetchLabs() }, [authed])
   useEffect(() => {
     setFacId(''); setFaculties([]); resetInput()
     if (labId && target === 'faculty') fetchFaculties(labId)
@@ -118,16 +127,32 @@ export default function AdminDataPage() {
     setImgFile(null); setSourceUrl(''); setYearVal(''); setMultiUrls([''])
   }
 
-  async function fetchAllNames() {
-    const { data } = await sb.from('contributors').select('name').order('name')
-    if (data) setAllNames(data.map((d: { name: string }) => d.name))
+  // adminのプルダウン用に admin ロールの人だけ取得
+  async function fetchAdminNames() {
+    const { data } = await sb.from('contributors').select('name').eq('role', 'admin').order('name')
+    if (data) setAdminNames(data.map((d: { name: string }) => d.name))
   }
 
   async function handleLogin() {
-    if (!nameInput) { setLoginError('名前を選択してください'); return }
+    // ログインに使う名前を決定
+    let loginName = ''
+    if (loginMode === 'contributor') {
+      loginName = nameInput.trim()
+      if (!loginName) { setLoginError('名前を入力してください'); return }
+    } else {
+      // adminモード
+      if (showNewAdmin) {
+        loginName = newAdminName.trim()
+        if (!loginName) { setLoginError('名前を入力してください'); return }
+      } else {
+        loginName = adminSelect
+        if (!loginName) { setLoginError('名前を選択してください'); return }
+      }
+    }
+
     const res = await fetch('/api/admin/auth', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: nameInput, password: pw }),
+      body: JSON.stringify({ name: loginName, password: pw }),
     })
     if (res.ok) {
       const d = await res.json()
@@ -135,7 +160,7 @@ export default function AdminDataPage() {
       setUserRole(d.role as UserRole)
       setUserName(d.name)
     } else {
-      setLoginError('パスワードが違います')
+      setLoginError('名前またはパスワードが違います')
       setTimeout(() => setLoginError(''), 2000)
     }
   }
@@ -194,7 +219,6 @@ export default function AdminDataPage() {
     reader.readAsDataURL(imgFile)
   }
 
-  // ── 保存（admin: 即時反映 / contributor: pending登録）
   async function handleSave() {
     if (saveBlocked) return alert('短時間に保存が多すぎます。少し待ってから試してください。')
     const newCount = saveCount + 1; setSaveCount(newCount)
@@ -211,7 +235,6 @@ export default function AdminDataPage() {
 
       if (target === 'faculty' && facFieldKey === 'publication') {
         if (!pubTitle.trim() && !pubDoi.trim()) { setLoading(false); return alert('タイトルまたはDOIを入力してください') }
-
         if (isAdmin) {
           const { data: pub } = await sb.from('publications').insert({
             type: pubType, title: pubTitle, doi: pubDoi || null, isbn: pubIsbn || null,
@@ -225,7 +248,6 @@ export default function AdminDataPage() {
             })
           }
         } else {
-          // contributor → pending登録
           await sb.from('admin_logs').insert({
             target_type: 'faculty', target_id: facId, lab_id: labId,
             field: 'publication', new_value: `[出版物] ${pubTitle} / DOI:${pubDoi}`,
@@ -235,11 +257,9 @@ export default function AdminDataPage() {
 
       } else if (target === 'lab') {
         const def = LAB_FIELDS[labFieldKey]
-
         if (MULTI_FIELDS.includes(labFieldKey)) {
           const validUrls = multiUrls.map(u => u.trim()).filter(u => u.length > 0)
           if (validUrls.length === 0) { setLoading(false); return alert('URLを1つ以上入力してください') }
-
           if (isAdmin) {
             const { data: current } = await sb.from('labs').select(def.col).eq('id', labId).single()
             const oldVal   = (current as Record<string, unknown> | null)?.[def.col]
@@ -248,7 +268,6 @@ export default function AdminDataPage() {
             if (dupes.length > 0) { setLoading(false); return alert(`すでに登録済みのURLが含まれています:\n${dupes.join('\n')}`) }
             await sb.from('labs').update({ [def.col]: [...existing, ...validUrls], updated_at: now }).eq('id', labId)
           }
-
           const logLab = labs.find(l => l.id === labId)
           await sb.from('admin_logs').insert({
             target_type: 'lab', target_id: labId, lab_id: labId,
@@ -261,17 +280,14 @@ export default function AdminDataPage() {
               targetType: 'lab', labName: logLab?.name ?? '',
               fieldLabel: LAB_FIELDS[labFieldKey]?.label ?? '',
               newValue: validUrls.join('\n'), oldValue: null,
-              contributor: userName,
-              isPending: !isAdmin,
+              contributor: userName, isPending: !isAdmin,
             }),
           })
-
         } else {
           const saveValue = def.isUrl
             ? urlInput.trim()
             : (inputMode === 'manual' ? manualText.trim() : (aiResult.trim() || urlInput.trim()))
           if (!saveValue) { setLoading(false); return alert('内容を入力してください') }
-
           let oldValStr = ''
           if (isAdmin) {
             const { data: current } = await sb.from('labs').select(def.col).eq('id', labId).single()
@@ -282,13 +298,11 @@ export default function AdminDataPage() {
             if (def.hasYear && yearVal) { update['student_count_year'] = yearVal; update['student_count_source'] = sourceUrl }
             await sb.from('labs').update(update).eq('id', labId)
           }
-
           const logLab = labs.find(l => l.id === labId)
           await sb.from('admin_logs').insert({
             target_type: 'lab', target_id: labId, lab_id: labId,
             field: labFieldKey, old_value: isAdmin ? oldValStr : null,
-            new_value: saveValue, contributor: userName,
-            status: isAdmin ? 'approved' : 'pending',
+            new_value: saveValue, contributor: userName, status: isAdmin ? 'approved' : 'pending',
           })
           await fetch('/api/admin/notify', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -312,7 +326,6 @@ export default function AdminDataPage() {
         if (['x_username', 'instagram_username'].includes(facFieldKey))
           value = value.replace(/^@/, '')
         if (!value) { setLoading(false); return alert('内容を入力してください') }
-
         let oldValStr = ''
         if (isAdmin) {
           const { data: current } = await sb.from('faculties').select(def.col).eq('id', facId).single()
@@ -320,14 +333,12 @@ export default function AdminDataPage() {
           oldValStr = typeof oldVal === 'string' ? oldVal : String(oldVal ?? '')
           await sb.from('faculties').update({ [def.col]: value, updated_at: now }).eq('id', facId)
         }
-
         const logLab = labs.find(l => l.id === labId)
         const logFac = faculties.find(f => f.id === facId)
         await sb.from('admin_logs').insert({
           target_type: 'faculty', target_id: facId, lab_id: labId,
           field: facFieldKey, old_value: isAdmin ? oldValStr : null,
-          new_value: value, contributor: userName,
-          status: isAdmin ? 'approved' : 'pending',
+          new_value: value, contributor: userName, status: isAdmin ? 'approved' : 'pending',
         })
         await fetch('/api/admin/notify', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -362,18 +373,68 @@ export default function AdminDataPage() {
   // ── ログイン画面
   if (!authed) return (
     <main style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:'#F9FAFB', fontFamily:font }}>
-      <div style={{ background:'white', borderRadius:16, padding:'32px 28px', width:340, border:'1px solid #E5E7EB' }}>
+      <div style={{ background:'white', borderRadius:16, padding:'32px 28px', width:360, border:'1px solid #E5E7EB' }}>
         <h1 style={{ fontSize:17, fontWeight:800, margin:'0 0 4px' }}>データ投入</h1>
         <p style={{ fontSize:12, color:'#9CA3AF', margin:'0 0 20px' }}>名前とパスワードでログイン</p>
 
-        <p style={{ fontSize:11, fontWeight:700, color:'#6B7280', margin:'0 0 5px' }}>名前</p>
-        <select value={nameInput} onChange={e => setNameInput(e.target.value)}
-          style={{ ...sel, marginBottom:12 }}>
-          <option value="">── 選択してください ──</option>
-          {allNames.map(n => <option key={n} value={n}>{n}</option>)}
-        </select>
+        {/* ログインモード切り替え */}
+        <div style={{ display:'flex', gap:6, marginBottom:20 }}>
+          {(['contributor','admin'] as const).map(m => (
+            <button key={m} onClick={() => { setLoginMode(m); setLoginError('') }}
+              style={{ flex:1, padding:'8px', borderRadius:8, cursor:'pointer', fontSize:12,
+                border:`1.5px solid ${loginMode===m ? '#3B82F6' : '#E5E7EB'}`,
+                background: loginMode===m ? '#EFF6FF' : 'white',
+                color: loginMode===m ? '#1D4ED8' : '#6B7280', fontWeight: loginMode===m ? 700 : 400 }}>
+              {m === 'admin' ? '👑 管理者' : '✏️ 情報提供者'}
+            </button>
+          ))}
+        </div>
 
-        <p style={{ fontSize:11, fontWeight:700, color:'#6B7280', margin:'0 0 5px' }}>パスワード</p>
+        {/* contributor: テキスト入力 */}
+        {loginMode === 'contributor' && (
+          <div style={{ marginBottom:12 }}>
+            <Label text="あなたの名前" />
+            <input
+              placeholder="名前を入力（例: 山田太郎）"
+              value={nameInput}
+              onChange={e => setNameInput(e.target.value)}
+              style={inp}
+            />
+          </div>
+        )}
+
+        {/* admin: プルダウン or 新規追加 */}
+        {loginMode === 'admin' && (
+          <div style={{ marginBottom:12 }}>
+            <Label text="管理者名" />
+            {!showNewAdmin ? (
+              <div style={{ display:'flex', gap:8 }}>
+                <select value={adminSelect} onChange={e => setAdminSelect(e.target.value)}
+                  style={{ ...sel, flex:1 }}>
+                  <option value="">── 選択してください ──</option>
+                  {adminNames.map(n => <option key={n} value={n}>{n}</option>)}
+                </select>
+                <button onClick={() => { setShowNewAdmin(true); setAdminSelect('') }}
+                  style={{ padding:'9px 12px', borderRadius:8, border:'1px solid #E5E7EB', background:'white', fontSize:12, cursor:'pointer', whiteSpace:'nowrap' }}>
+                  ＋ 新規
+                </button>
+              </div>
+            ) : (
+              <div style={{ display:'flex', gap:8 }}>
+                <input placeholder="新しい管理者名" value={newAdminName}
+                  onChange={e => setNewAdminName(e.target.value)}
+                  style={{ ...inp, flex:1 }} />
+                <button onClick={() => { setShowNewAdmin(false); setNewAdminName('') }}
+                  style={{ padding:'9px 12px', borderRadius:8, border:'1px solid #E5E7EB', background:'white', fontSize:12, cursor:'pointer', whiteSpace:'nowrap' }}>
+                  戻る
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* パスワード */}
+        <Label text="パスワード" />
         <input type="password" placeholder="パスワード" value={pw}
           onChange={e => setPw(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && handleLogin()}
@@ -397,7 +458,6 @@ export default function AdminDataPage() {
           <span style={{ fontSize:11, color:'#9CA3AF', marginLeft:8 }}>研究室DBの更新</span>
         </div>
         <div style={{ display:'flex', gap:6, alignItems:'center' }}>
-          {/* ログインユーザー表示 */}
           <span style={{ fontSize:12, padding:'4px 10px', borderRadius:20,
             background: isAdmin ? '#EFF6FF' : '#F0FDF4',
             color: isAdmin ? '#1D4ED8' : '#16A34A',
@@ -415,7 +475,6 @@ export default function AdminDataPage() {
         </div>
       </header>
 
-      {/* contributorへの案内バナー */}
       {!isAdmin && (
         <div style={{ background:'#FFFBEB', borderBottom:'1px solid #FDE68A', padding:'10px 16px', textAlign:'center' }}>
           <p style={{ fontSize:12, color:'#92400E', margin:0 }}>
@@ -579,7 +638,6 @@ export default function AdminDataPage() {
                   {isImage && <ModeBtn active={inputMode==='screenshot'} onClick={() => setInputMode('screenshot')} icon="📸" title="画像から取得" desc="スクショをアップすると、AIが画像の文字を読み取ります" />}
                   <ModeBtn active={inputMode==='manual'} onClick={() => setInputMode('manual')} icon="✏️" title="直接入力" desc="テキストをそのままここに入力します" />
                 </div>
-
                 {inputMode === 'url' && (
                   <div>
                     <input type="url" placeholder="https://..." value={urlInput} onChange={e => setUrlInput(e.target.value)} style={{ ...inp, marginBottom:8 }} />
