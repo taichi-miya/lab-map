@@ -39,6 +39,9 @@ const LAB_FIELDS: Record<string, LabFieldDef> = {
   twitter_url_other:   { label:'🐦 紹介 X URL（非公式）',               col:'twitter_url_other',   group:'sns',   isUrl:true },
 }
 
+// 複数OKなフィールド（jsonb配列に追記するもの）
+const MULTI_FIELDS = ['youtube_video_urls', 'instagram_url_other', 'twitter_url_other']
+
 // ── 教員フィールド定義 ─────────────────────────────────────────
 type FacultyFieldDef = { label: string; col: string; group: 'sns' | 'research'; isUrl?: boolean; hint?: string }
 const FACULTY_FIELDS: Record<string, FacultyFieldDef> = {
@@ -151,7 +154,6 @@ export default function AdminDataPage() {
     setImgFile(null); setSourceUrl(''); setYearVal('')
   }
 
-  // ── ログイン（サーバー側認証）
   async function handleLogin() {
     const res = await fetch('/api/admin/auth', {
       method: 'POST',
@@ -237,7 +239,7 @@ export default function AdminDataPage() {
     return contributor
   }
 
-// ── 保存
+  // ── 保存
   async function handleSave() {
     // レート制限
     if (saveBlocked) return alert('短時間に保存が多すぎます。少し待ってから試してください。')
@@ -255,12 +257,7 @@ export default function AdminDataPage() {
     const now = new Date().toISOString()
     setLoading(true)
 
-    // 複数OKなフィールド（jsonb配列に追記するもの）
-    const MULTI_FIELDS = ['youtube_video_urls', 'instagram_url_other', 'twitter_url_other']
-
     try {
-      const logValue = inputMode === 'manual' ? manualText : (aiResult || urlInput)
-
       if (target === 'faculty' && facFieldKey === 'publication') {
         // ── 出版物
         if (!pubTitle.trim() && !pubDoi.trim()) {
@@ -283,24 +280,30 @@ export default function AdminDataPage() {
       } else if (target === 'lab') {
         // ── 研究室フィールド
         const def = LAB_FIELDS[labFieldKey]
-        if (!logValue.trim()) { setLoading(false); return alert('内容を入力してください') }
+        // URL系は urlInput を直接、テキスト系は aiResult or manualText
+        const saveValue = def.isUrl
+          ? urlInput.trim()
+          : (inputMode === 'manual' ? manualText.trim() : (aiResult.trim() || urlInput.trim()))
+        if (!saveValue) { setLoading(false); return alert('内容を入力してください') }
 
         // old_value を取得
         const { data: current } = await sb.from('labs').select(def.col).eq('id', labId).single()
-        const oldVal = (current as Record<string, string> | null)?.[def.col] ?? ''
+        const oldVal = (current as Record<string, unknown> | null)?.[def.col]
 
         if (MULTI_FIELDS.includes(labFieldKey)) {
-          // 複数OKなフィールド → 配列に追記
-          const existing: string[] = Array.isArray(oldVal) ? oldVal : (oldVal ? JSON.parse(oldVal) : [])
-          if (existing.includes(logValue)) {
+          // 複数OKなフィールド → jsonb配列に追記
+          const existing: string[] = Array.isArray(oldVal) ? (oldVal as string[]) : []
+          if (existing.includes(saveValue)) {
             setLoading(false)
             return alert('同じURLがすでに登録されています')
           }
-          const updated = [...existing, logValue]
-          await sb.from('labs').update({ [def.col]: updated, updated_at: now }).eq('id', labId)
+          const updated = [...existing, saveValue]
+          await sb.from('labs')
+            .update({ [def.col]: JSON.stringify(updated), updated_at: now })
+            .eq('id', labId)
         } else {
           // 通常フィールド → 上書き
-          const update: Record<string, unknown> = { [def.col]: logValue, updated_at: now }
+          const update: Record<string, unknown> = { [def.col]: saveValue, updated_at: now }
           if (def.hasSource && sourceUrl) update['summary_source_url'] = sourceUrl
           if (def.hasYear && yearVal) {
             update['student_count_year']   = yearVal
@@ -310,15 +313,20 @@ export default function AdminDataPage() {
         }
 
         // ── ログ記録
-        const logField = LAB_FIELDS[labFieldKey]?.label
-        const logLab   = labs.find(l => l.id === labId)
+        const logField  = LAB_FIELDS[labFieldKey]?.label
+        const logLab    = labs.find(l => l.id === labId)
+        const oldValStr = MULTI_FIELDS.includes(labFieldKey)
+          ? null
+          : (typeof oldVal === 'string' && oldVal.length > 1000
+              ? oldVal.slice(0, 1000) + '…'
+              : String(oldVal ?? ''))
         await sb.from('admin_logs').insert({
           target_type: 'lab',
           target_id:   labId,
           lab_id:      labId,
           field:       labFieldKey,
-          old_value:   MULTI_FIELDS.includes(labFieldKey) ? null : (oldVal.length > 1000 ? oldVal.slice(0, 1000) + '…' : oldVal),
-          new_value:   logValue,
+          old_value:   oldValStr,
+          new_value:   saveValue,
           contributor: by,
         })
 
@@ -329,8 +337,8 @@ export default function AdminDataPage() {
             targetType:  'lab',
             labName:     logLab?.name ?? '',
             fieldLabel:  logField ?? '',
-            newValue:    logValue,
-            oldValue:    MULTI_FIELDS.includes(labFieldKey) ? null : oldVal,
+            newValue:    saveValue,
+            oldValue:    MULTI_FIELDS.includes(labFieldKey) ? null : oldValStr,
             contributor: by,
           }),
         })
@@ -338,16 +346,20 @@ export default function AdminDataPage() {
       } else {
         // ── 教員フィールド
         const def = FACULTY_FIELDS[facFieldKey]
-        let value = logValue
+        const saveValue = def.isUrl
+          ? urlInput.trim()
+          : (inputMode === 'manual' ? manualText.trim() : (aiResult.trim() || urlInput.trim()))
+        let value = saveValue
         if (def.col === 'researchmap_id' && value.includes('researchmap.jp/'))
           value = value.split('researchmap.jp/').pop()?.split('/')[0] ?? value
         if (['x_username', 'instagram_username'].includes(facFieldKey))
           value = value.replace(/^@/, '')
-        if (!value.trim()) { setLoading(false); return alert('内容を入力してください') }
+        if (!value) { setLoading(false); return alert('内容を入力してください') }
 
         // old_value を取得
         const { data: current } = await sb.from('faculties').select(def.col).eq('id', facId).single()
-        const oldVal = (current as Record<string, string> | null)?.[def.col] ?? ''
+        const oldVal    = (current as Record<string, unknown> | null)?.[def.col]
+        const oldValStr = typeof oldVal === 'string' ? oldVal : String(oldVal ?? '')
 
         await sb.from('faculties').update({ [def.col]: value, updated_at: now }).eq('id', facId)
 
@@ -360,7 +372,7 @@ export default function AdminDataPage() {
           target_id:   facId,
           lab_id:      labId,
           field:       facFieldKey,
-          old_value:   oldVal,
+          old_value:   oldValStr,
           new_value:   value,
           contributor: by,
         })
@@ -373,7 +385,7 @@ export default function AdminDataPage() {
             labName:     `${logLab?.name ?? ''} / ${logFac?.name ?? ''}`,
             fieldLabel:  logField ?? '',
             newValue:    value,
-            oldValue:    oldVal,
+            oldValue:    oldValStr,
             contributor: by,
           }),
         })
@@ -491,7 +503,6 @@ export default function AdminDataPage() {
           {(target === 'lab' || (target === 'faculty' && facId)) && (
             <div style={card}>
               <Label text={target === 'lab' ? '③ どの情報を追加・更新しますか？' : '③-b どの情報を追加・更新しますか？'} />
-
               {target === 'lab' ? (
                 <select value={labFieldKey}
                   onChange={e => { setLabFieldKey(e.target.value); resetInput() }}
@@ -572,17 +583,18 @@ export default function AdminDataPage() {
                 </div>
 
               ) : isUrl ? (
-                /* URL直接貼り付け */
                 <div>
                   <p style={{ fontSize:12, color:'#6B7280', margin:'0 0 8px', lineHeight:1.6 }}>
                     URLをそのまま貼り付けてください。
+                    {MULTI_FIELDS.includes(labFieldKey) && (
+                      <span style={{ color:'#3B82F6', fontWeight:600 }}> （複数登録可）</span>
+                    )}
                   </p>
                   <input type="url" placeholder="https://..." value={urlInput}
                     onChange={e => setUrlInput(e.target.value)} style={inp} />
                 </div>
 
               ) : (<>
-                {/* テキスト系：3モード */}
                 <div style={{ display:'grid', gridTemplateColumns: isImage ? '1fr 1fr 1fr' : '1fr 1fr', gap:8, marginBottom:14 }}>
                   <ModeBtn active={inputMode==='url'} onClick={() => setInputMode('url')}
                     icon="🔗" title="URLから取得"
@@ -597,7 +609,6 @@ export default function AdminDataPage() {
                     desc="テキストをそのままここに入力します" />
                 </div>
 
-                {/* URLモード */}
                 {inputMode === 'url' && (
                   <div>
                     <input type="url" placeholder="https://..." value={urlInput}
@@ -619,7 +630,6 @@ export default function AdminDataPage() {
                   </div>
                 )}
 
-                {/* スクショモード */}
                 {inputMode === 'screenshot' && (
                   <div>
                     <input type="file" accept="image/*" onChange={e => setImgFile(e.target.files?.[0] ?? null)}
@@ -641,7 +651,6 @@ export default function AdminDataPage() {
                   </div>
                 )}
 
-                {/* 直接入力モード */}
                 {inputMode === 'manual' && (
                   <textarea value={manualText} onChange={e => setManualText(e.target.value)}
                     rows={6} placeholder="ここにテキストを入力してください..."
@@ -649,7 +658,6 @@ export default function AdminDataPage() {
                 )}
               </>)}
 
-              {/* 出典URL */}
               {!isPub && !isUrl && labDef?.hasSource && (
                 <div style={{ marginTop:12, paddingTop:12, borderTop:'1px solid #F3F4F6' }}>
                   <Label text="出典URL（どこから取得した情報か）" hint="任意" />
@@ -658,7 +666,6 @@ export default function AdminDataPage() {
                 </div>
               )}
 
-              {/* 年度 */}
               {!isPub && labDef?.hasYear && (
                 <div style={{ marginTop:10 }}>
                   <Label text="何年度の情報ですか？" hint="例: 2024年度" />
