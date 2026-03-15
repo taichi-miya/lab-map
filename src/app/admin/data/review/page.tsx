@@ -22,9 +22,7 @@ type PendingLog = {
 }
 
 const font = "system-ui,'Noto Sans JP',sans-serif"
-const PW = process.env.NEXT_PUBLIC_ADMIN_PASSWORD ?? ''
 
-// labs/faculties のフィールドラベル逆引き
 const ALL_FIELD_LABELS: Record<string, string> = {
   summary_text: '📝 研究概要テキスト', lab_url: '🔗 公式HP URL',
   intro_url: '🔗 紹介ページURL', faculty_name: '👤 教員名',
@@ -37,12 +35,12 @@ const ALL_FIELD_LABELS: Record<string, string> = {
 }
 
 export default function ReviewPage() {
-  const [authed,   setAuthed]   = useState(false)
-  const [pw,       setPw]       = useState('')
-  const [pwError,  setPwError]  = useState(false)
-  const [logs,     setLogs]     = useState<PendingLog[]>([])
-  const [loading,  setLoading]  = useState(false)
-  const [note,     setNote]     = useState<Record<string, string>>({})
+  const [authed,  setAuthed]  = useState(false)
+  const [pw,      setPw]      = useState('')
+  const [pwError, setPwError] = useState(false)
+  const [logs,    setLogs]    = useState<PendingLog[]>([])
+  const [loading, setLoading] = useState(false)
+  const [note,    setNote]    = useState<Record<string, string>>({})
 
   useEffect(() => { if (authed) fetchPending() }, [authed])
 
@@ -51,7 +49,12 @@ export default function ReviewPage() {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: 'Taichi', password: pw }),
     })
-    if (res.ok) { setAuthed(true) } else { setPwError(true); setTimeout(() => setPwError(false), 2000) }
+    if (res.ok) {
+      setAuthed(true)
+    } else {
+      setPwError(true)
+      setTimeout(() => setPwError(false), 2000)
+    }
   }
 
   async function fetchPending() {
@@ -63,33 +66,40 @@ export default function ReviewPage() {
     setLoading(true)
     const now = new Date().toISOString()
 
-    // フィールドに応じてDBを更新
     if (log.target_type === 'lab') {
+      const multiFields = ['youtube_video_urls', 'instagram_url_other', 'twitter_url_other']
       const labFields: Record<string, string> = {
-        summary_text:'summary_text', lab_url:'lab_url', intro_url:'intro_url',
-        faculty_name:'faculty_name', student_count:'student_count',
-        instagram_url:'instagram_url', twitter_url:'twitter_url',
-        youtube_channel_url:'youtube_channel_url',
+        summary_text: 'summary_text', lab_url: 'lab_url', intro_url: 'intro_url',
+        faculty_name: 'faculty_name', student_count: 'student_count',
+        instagram_url: 'instagram_url', twitter_url: 'twitter_url',
+        youtube_channel_url: 'youtube_channel_url',
       }
-      const multiFields = ['youtube_video_urls','instagram_url_other','twitter_url_other']
 
       if (multiFields.includes(log.field)) {
         const { data: current } = await sb.from('labs').select(log.field).eq('id', log.lab_id).single()
-        const existing = Array.isArray((current as Record<string,unknown>)?.[log.field])
-          ? (current as Record<string,string[]>)[log.field] : []
+        const currentData = current as unknown as Record<string, unknown> | null
+        const existing = Array.isArray(currentData?.[log.field])
+          ? (currentData?.[log.field] as string[]) : []
         const newUrls = log.new_value.split('\n').map(u => u.trim()).filter(u => u)
-        await sb.from('labs').update({ [log.field]: [...existing, ...newUrls], updated_at: now }).eq('id', log.lab_id)
+        await sb.from('labs')
+          .update({ [log.field]: [...existing, ...newUrls], updated_at: now })
+          .eq('id', log.lab_id)
       } else if (labFields[log.field]) {
-        await sb.from('labs').update({ [labFields[log.field]]: log.new_value, updated_at: now }).eq('id', log.lab_id)
+        await sb.from('labs')
+          .update({ [labFields[log.field]]: log.new_value, updated_at: now })
+          .eq('id', log.lab_id)
       }
+
     } else if (log.target_type === 'faculty') {
       const facFields: Record<string, string> = {
-        researchmap:'researchmap_id', instagram_url:'instagram_url',
-        twitter_url:'twitter_url', x_username:'x_username',
-        instagram_username:'instagram_url',
+        researchmap: 'researchmap_id', instagram_url: 'instagram_url',
+        twitter_url: 'twitter_url', x_username: 'x_username',
+        instagram_username: 'instagram_url',
       }
       if (facFields[log.field]) {
-        await sb.from('faculties').update({ [facFields[log.field]]: log.new_value, updated_at: now }).eq('id', log.target_id)
+        await sb.from('faculties')
+          .update({ [facFields[log.field]]: log.new_value, updated_at: now })
+          .eq('id', log.target_id)
       }
     }
 
@@ -125,8 +135,13 @@ export default function ReviewPage() {
     await fetchPending()
   }
 
-  const inp: React.CSSProperties = { width:'100%', padding:'8px 10px', borderRadius:7, border:'1px solid #E5E7EB', fontSize:12, boxSizing:'border-box', outline:'none', fontFamily:font }
+  const inp: React.CSSProperties = {
+    width: '100%', padding: '8px 10px', borderRadius: 7,
+    border: '1px solid #E5E7EB', fontSize: 12,
+    boxSizing: 'border-box', outline: 'none', fontFamily: font,
+  }
 
+  // ── ログイン画面
   if (!authed) return (
     <main style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:'#F9FAFB', fontFamily:font }}>
       <div style={{ background:'white', borderRadius:16, padding:'32px 28px', width:320, border:'1px solid #E5E7EB' }}>
@@ -145,6 +160,7 @@ export default function ReviewPage() {
     </main>
   )
 
+  // ── メイン画面
   return (
     <main style={{ minHeight:'100vh', background:'#F9FAFB', fontFamily:font }}>
       <header style={{ background:'white', borderBottom:'1px solid #E5E7EB', padding:'12px 16px', display:'flex', alignItems:'center', justifyContent:'space-between', position:'sticky', top:0, zIndex:10 }}>
@@ -168,6 +184,7 @@ export default function ReviewPage() {
           <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
             {logs.map(log => (
               <div key={log.id} style={{ background:'white', border:'1.5px solid #FDE68A', borderRadius:12, padding:'16px 18px' }}>
+
                 {/* ヘッダー */}
                 <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:12 }}>
                   <div>
@@ -179,7 +196,9 @@ export default function ReviewPage() {
                       {ALL_FIELD_LABELS[log.field] ?? log.field}　·　提案者: <strong>{log.contributor}</strong>　·　{new Date(log.created_at).toLocaleString('ja-JP', { timeZone:'Asia/Tokyo' })}
                     </p>
                   </div>
-                  <span style={{ fontSize:11, padding:'3px 10px', borderRadius:20, background:'#FFFBEB', color:'#D97706', border:'1px solid #FDE68A', fontWeight:700, whiteSpace:'nowrap' }}>承認待ち</span>
+                  <span style={{ fontSize:11, padding:'3px 10px', borderRadius:20, background:'#FFFBEB', color:'#D97706', border:'1px solid #FDE68A', fontWeight:700, whiteSpace:'nowrap', marginLeft:8 }}>
+                    承認待ち
+                  </span>
                 </div>
 
                 {/* 既存値 */}
@@ -201,21 +220,23 @@ export default function ReviewPage() {
                 </div>
 
                 {/* 却下メモ */}
-                <input placeholder="却下理由（任意）" value={note[log.id] ?? ''}
+                <input placeholder="却下理由（任意・却下する場合のみ）"
+                  value={note[log.id] ?? ''}
                   onChange={e => setNote(prev => ({ ...prev, [log.id]: e.target.value }))}
                   style={{ ...inp, marginBottom:10 }} />
 
                 {/* ボタン */}
                 <div style={{ display:'flex', gap:8 }}>
                   <button onClick={() => handleApprove(log)} disabled={loading}
-                    style={{ flex:1, padding:'10px', borderRadius:8, border:'none', background:'#16A34A', color:'white', fontSize:13, fontWeight:700, cursor:'pointer' }}>
+                    style={{ flex:1, padding:'10px', borderRadius:8, border:'none', background:'#16A34A', color:'white', fontSize:13, fontWeight:700, cursor: loading ? 'wait' : 'pointer' }}>
                     ✅ 承認してDBに反映
                   </button>
                   <button onClick={() => handleReject(log)} disabled={loading}
-                    style={{ flex:1, padding:'10px', borderRadius:8, border:'1px solid #FCA5A5', background:'#FEF2F2', color:'#EF4444', fontSize:13, fontWeight:700, cursor:'pointer' }}>
+                    style={{ flex:1, padding:'10px', borderRadius:8, border:'1px solid #FCA5A5', background:'#FEF2F2', color:'#EF4444', fontSize:13, fontWeight:700, cursor: loading ? 'wait' : 'pointer' }}>
                     ❌ 却下
                   </button>
                 </div>
+
               </div>
             ))}
           </div>
