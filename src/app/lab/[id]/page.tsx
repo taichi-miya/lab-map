@@ -33,20 +33,24 @@ export default async function LabDetail({ params }: { params: Promise<{ id: stri
     .order('created_at')
 
   // 表示用に整形（role を faculty_labs から取り込む）
+  // Supabaseはネストリレーションを配列で型推論するため unknown 経由でキャスト
+  type FacultyRow = {
+    id: string; name: string; role: string | null
+    researchmap_id: string | null; twitter_url: string | null
+    instagram_url: string | null; x_username: string | null
+  }
   const faculties = (facultyLabRows ?? [])
     .map(row => {
-      const fac = row.faculties as {
+      const rawFac = row.faculties
+      // 配列で来た場合は先頭要素を使う
+      const fac = (Array.isArray(rawFac) ? rawFac[0] : rawFac) as unknown as {
         id: string; name: string; researchmap_id: string | null
         twitter_url: string | null; instagram_url: string | null; x_username: string | null
       } | null
       if (!fac) return null
-      return { ...fac, role: row.role ?? null }
+      return { ...fac, role: (row.role ?? null) as string | null } satisfies FacultyRow
     })
-    .filter(Boolean) as {
-      id: string; name: string; role: string | null
-      researchmap_id: string | null; twitter_url: string | null
-      instagram_url: string | null; x_username: string | null
-    }[]
+    .filter((f): f is FacultyRow => f !== null)
   // ─────────────────────────────────────────────────────────────────────────
 
   const { data: edgesA } = await supabase
