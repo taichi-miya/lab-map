@@ -13,8 +13,9 @@ const sb = createClient(
 type Lab     = { id: string; name: string; faculty_name: string | null; dept: string | null }
 type Faculty = { id: string; name: string; role: string | null }
 
-// 研究室項目
-const LAB_FIELD_DEFS: Record<string, { label: string; hint?: string; isUrl?: boolean; isMulti?: boolean }> = {
+type FieldDef = { label: string; hint?: string; isUrl?: boolean; isMulti?: boolean }
+
+const LAB_FIELD_DEFS: Record<string, FieldDef> = {
   summary_text:        { label: '📝 研究概要テキスト' },
   lab_url:             { label: '🔗 公式HP URL',                 isUrl: true },
   intro_url:           { label: '🔗 紹介ページ URL（研究科等）', isUrl: true },
@@ -26,15 +27,13 @@ const LAB_FIELD_DEFS: Record<string, { label: string; hint?: string; isUrl?: boo
   instagram_url_other: { label: '📷 紹介 Instagram（非公式）',  isUrl: true, isMulti: true },
   twitter_url_other:   { label: '🐦 紹介 X（非公式）',          isUrl: true, isMulti: true },
 }
-// 教員項目
-const FAC_FIELD_DEFS: Record<string, { label: string; hint?: string; isUrl?: boolean }> = {
+
+const FAC_FIELD_DEFS: Record<string, FieldDef> = {
   fac_researchmap: { label: '🔬 researchmap URL', isUrl: true, hint: 'URLを貼るとIDを自動抽出します' },
   fac_twitter_url: { label: '🐦 X URL',           isUrl: true },
   fac_instagram:   { label: '📷 Instagram URL',   isUrl: true },
   fac_x_username:  { label: '🐦 X アカウント名（@以下）', hint: '例: tohoku_lab_abc' },
 }
-
-const MULTI_FIELDS = ['youtube_video_urls', 'instagram_url_other', 'twitter_url_other']
 
 const font = "system-ui,'Noto Sans JP',sans-serif"
 const inp: React.CSSProperties  = { width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid #E5E7EB', fontSize: 14, boxSizing: 'border-box', outline: 'none', fontFamily: font }
@@ -49,14 +48,12 @@ function Label({ text, hint }: { text: string; hint?: string }) {
   )
 }
 
-// URLパラメータを読み取るコンポーネント
 function ContributeInner() {
   const { user, isLoaded } = useUser()
   const searchParams = useSearchParams()
 
-  // URLパラメータから研究室を初期設定
   const initialLabId   = searchParams.get('lab_id')   ?? ''
-  const initialLabName = searchParams.get('lab_name') ?? ''
+  const initialLabName = decodeURIComponent(searchParams.get('lab_name') ?? '')
 
   const [step,       setStep]       = useState<1 | 2 | 3 | 4>(initialLabId ? 2 : 1)
   const [submitted,  setSubmitted]  = useState(false)
@@ -97,22 +94,20 @@ function ContributeInner() {
   )
 
   const currentFieldDefs = targetType === 'lab' ? LAB_FIELD_DEFS : FAC_FIELD_DEFS
-  const fieldDef     = fieldKey ? currentFieldDefs[fieldKey] : null
-  const isMulti      = !!fieldDef?.isMulti
-  const selectedFac  = faculties.find(f => f.id === facId)
+  const fieldDef  = fieldKey ? currentFieldDefs[fieldKey] : null
+  const isMulti   = !!fieldDef?.isMulti
+  const selectedFac = faculties.find(f => f.id === facId)
 
   function getFinalValue(): string {
     if (isMulti) return multiUrls.filter(u => u.trim()).join('\n')
     return textVal.trim()
   }
 
-  // 研究室を選ぶ→Step2へ（URLパラメータ経由の場合はスキップ）
   function handleLabSelect(id: string, name: string) {
     setLabId(id); setLabName(name); setFieldKey(''); setFacId('')
     setStep(2)
   }
 
-  // Step2→Step3
   function handleNext2() {
     if (targetType === 'faculty' && !facId) { setError('教員を選択してください'); return }
     if (!fieldKey) { setError('提供する情報の種類を選択してください'); return }
@@ -160,7 +155,6 @@ function ContributeInner() {
     setLoading(false)
   }
 
-  // 完了画面
   if (submitted) return (
     <main style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F9FAFB', fontFamily: font }}>
       <div style={{ textAlign: 'center', padding: '0 20px' }}>
@@ -171,7 +165,6 @@ function ContributeInner() {
         </p>
         <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
           <button onClick={() => {
-            // 同じ研究室を保持したまま Step2 に戻る
             setSubmitted(false)
             setStep(2)
             setFieldKey('')
@@ -192,7 +185,6 @@ function ContributeInner() {
 
   return (
     <main style={{ minHeight: '100vh', background: '#F9FAFB', fontFamily: font }}>
-      {/* ヘッダー */}
       <header style={{ background: 'white', borderBottom: '1px solid #E5E7EB', padding: '13px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 10 }}>
         <div>
           <span style={{ fontSize: 15, fontWeight: 800 }}>📬 情報を提供する</span>
@@ -219,7 +211,6 @@ function ContributeInner() {
         </div>
       </header>
 
-      {/* ログイン誘導バナー */}
       {isLoaded && !user && (
         <div style={{ background: '#EFF6FF', borderBottom: '1px solid #BFDBFE', padding: '10px 16px' }}>
           <p style={{ fontSize: 12, color: '#1D4ED8', margin: 0, textAlign: 'center' }}>
@@ -257,7 +248,7 @@ function ContributeInner() {
           ))}
         </div>
 
-        {/* Step 1: 研究室選択（URLパラメータがある場合はスキップ済み） */}
+        {/* Step 1: 研究室選択 */}
         {step === 1 && (
           <div style={card}>
             <Label text="どの研究室の情報ですか？" />
@@ -286,10 +277,8 @@ function ContributeInner() {
         {/* Step 2: 情報の種類 */}
         {step === 2 && (
           <div style={card}>
-            {/* 研究室表示 */}
             <div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 9, padding: '9px 13px', marginBottom: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={{ fontSize: 13, fontWeight: 700, color: '#166534' }}>🏫 {labName}</span>
-              {/* URLパラメータから来た場合は変更ボタンを表示しない */}
               {!initialLabId && (
                 <button onClick={() => { setStep(1); setFieldKey(''); setFacId('') }}
                   style={{ fontSize: 11, color: '#6B7280', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>変更</button>
@@ -298,7 +287,6 @@ function ContributeInner() {
 
             <Label text="どの情報を提供しますか？" />
 
-            {/* 研究室 or 教員 */}
             <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
               {(['lab', 'faculty'] as const).map(t => (
                 <button key={t} onClick={() => { setTargetType(t); setFacId(''); setFieldKey('') }}
@@ -313,7 +301,6 @@ function ContributeInner() {
               ))}
             </div>
 
-            {/* 教員選択 */}
             {targetType === 'faculty' && (
               <div style={{ marginBottom: 14 }}>
                 <Label text="どの教員ですか？" />
@@ -327,7 +314,6 @@ function ContributeInner() {
               </div>
             )}
 
-            {/* フィールド選択プルダウン（教員選択後 or 研究室タブ） */}
             {(targetType === 'lab' || (targetType === 'faculty' && facId)) && (
               <div style={{ marginBottom: 16 }}>
                 <Label text="何の情報を提供しますか？" />
