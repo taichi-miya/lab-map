@@ -248,7 +248,10 @@ export default function LabCompletenessChart() {
               style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 6px', borderRadius: 8, cursor: row.isDept ? 'pointer' : 'default', transition: 'background 0.1s', background: hoverId === row.id ? '#f8faff' : 'transparent' }}
             >
               <div style={{ width: 150, flexShrink: 0 }}>
-                <div style={{ fontSize: 11, color: '#334155', lineHeight: 1.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: row.isDept ? 600 : 400 }}>
+                <div
+                  style={{ fontSize: 11, color: row.isDept ? '#334155' : '#5046E5', lineHeight: 1.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: row.isDept ? 600 : 500, cursor: row.isDept ? 'pointer' : 'pointer', textDecoration: row.isDept ? 'none' : 'underline' }}
+                  onClick={e => { if (!row.isDept) { e.stopPropagation(); window.location.href = `/lab/${row.id}` } }}
+                >
                   {row.label}
                 </div>
                 <div style={{ fontSize: 9, color: '#94a3b8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
