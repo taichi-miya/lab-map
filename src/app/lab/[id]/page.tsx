@@ -24,11 +24,30 @@ export default async function LabDetail({ params }: { params: Promise<{ id: stri
     </main>
   )
 
-  const { data: faculties } = await supabase
-    .from('faculties')
-    .select('id, name, role, researchmap_id, twitter_url, instagram_url, x_username')
+  // ── 変更点：faculty_labs 経由で教員を取得 ──────────────────────────────
+  // role は faculty_labs 側に移動したため、ネストして取得する
+  const { data: facultyLabRows } = await supabase
+    .from('faculty_labs')
+    .select('role, faculties(id, name, researchmap_id, twitter_url, instagram_url, x_username)')
     .eq('lab_id', id)
-    .order('name')
+    .order('created_at')
+
+  // 表示用に整形（role を faculty_labs から取り込む）
+  const faculties = (facultyLabRows ?? [])
+    .map(row => {
+      const fac = row.faculties as {
+        id: string; name: string; researchmap_id: string | null
+        twitter_url: string | null; instagram_url: string | null; x_username: string | null
+      } | null
+      if (!fac) return null
+      return { ...fac, role: row.role ?? null }
+    })
+    .filter(Boolean) as {
+      id: string; name: string; role: string | null
+      researchmap_id: string | null; twitter_url: string | null
+      instagram_url: string | null; x_username: string | null
+    }[]
+  // ─────────────────────────────────────────────────────────────────────────
 
   const { data: edgesA } = await supabase
     .from('edges')
@@ -189,7 +208,7 @@ export default async function LabDetail({ params }: { params: Promise<{ id: stri
           </h1>
 
           {/* STAFF */}
-          {faculties && faculties.length > 0 && (
+          {faculties.length > 0 && (
             <div style={{ marginBottom: 22 }}>
               <p style={{ fontSize: 11, fontWeight: 700, color: '#8FA1AE', marginBottom: 8, letterSpacing: '0.08em', fontFamily: "'Sora',sans-serif" }}>
                 STAFF

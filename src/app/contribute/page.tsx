@@ -86,14 +86,28 @@ function ContributeInner() {
       .then(({ data }) => { if (data) setLabs(data) })
   }, [])
 
+  // ── 変更点：faculty_labs 経由で教員を取得 ──────────────────────────────
   useEffect(() => {
     if (labId && targetType === 'faculty') {
-      sb.from('faculties').select('id,name,role').eq('lab_id', labId).order('name')
-        .then(({ data }) => { if (data) setFaculties(data) })
+      sb.from('faculty_labs')
+        .select('role, faculties(id, name)')
+        .eq('lab_id', labId)
+        .order('created_at')
+        .then(({ data }) => {
+          if (!data) { setFaculties([]); return }
+          const mapped: Faculty[] = data
+            .map((row: { role: string | null; faculties: { id: string; name: string } | null }) => {
+              if (!row.faculties) return null
+              return { id: row.faculties.id, name: row.faculties.name, role: row.role ?? null }
+            })
+            .filter(Boolean) as Faculty[]
+          setFaculties(mapped)
+        })
     } else {
       setFaculties([])
     }
   }, [labId, targetType])
+  // ─────────────────────────────────────────────────────────────────────────
 
   const filtered = labs.filter(l =>
     l.name.includes(query) || (l.faculty_name ?? '').includes(query) || (l.dept ?? '').includes(query)
@@ -175,7 +189,6 @@ function ContributeInner() {
       if (Number(docCount)    > 0) sends.push({ field: 'student_count_doc',    new_value: docCount })
       if (Number(masterCount) > 0) sends.push({ field: 'student_count_master', new_value: masterCount })
       if (Number(underCount)  > 0) sends.push({ field: 'student_count_under',  new_value: underCount })
-      // 全体は内訳の合計 or 手入力
       const total = hasBreakdown ? String(autoTotal) : totalCount.trim()
       if (total) sends.push({ field: 'student_count', new_value: total })
 
@@ -407,7 +420,6 @@ function ContributeInner() {
             {/* 学生数専用UI */}
             {isStudent ? (
               <div>
-                {/* 内訳入力 */}
                 <p style={{ fontSize: 11, color: '#6B7280', margin: '0 0 10px', fontWeight: 600 }}>内訳（わかる範囲で入力）</p>
                 {[
                   { key: 'doc',    label: '博士課程', val: docCount,    set: setDocCount    },
@@ -423,7 +435,6 @@ function ContributeInner() {
                   </div>
                 ))}
 
-                {/* 自動合計表示 */}
                 {hasBreakdown && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 8, marginBottom: 12 }}>
                     <span style={{ fontSize: 12, color: '#166534', fontWeight: 700 }}>合計 {autoTotal}名</span>
@@ -431,7 +442,6 @@ function ContributeInner() {
                   </div>
                 )}
 
-                {/* 内訳不明の場合は全体のみ */}
                 <div style={{ borderTop: '1px solid #E5E7EB', paddingTop: 12, marginTop: 4 }}>
                   <p style={{ fontSize: 11, color: '#9CA3AF', margin: '0 0 8px' }}>内訳がわからない場合は全体のみ入力</p>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
