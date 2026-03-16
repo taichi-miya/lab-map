@@ -162,7 +162,7 @@ export default function LabCompletenessChart() {
           ? avg(dLabs.map(labScore))
           : avg(faculties.filter(f => dLabs.some(l => l.id === f.lab_id)).map(facScore))
         return { id: dept, label: dept, sub: `${dLabs.length}研究室`, pct, isDept: true, lab: null, facs: [] as Faculty[] }
-      }).sort((a, b) => a.pct - b.pct)
+      }).sort((a, b) => b.pct - a.pct)
     } else {
       return labs
         .filter(l => l.dept === currentDept)
@@ -216,8 +216,8 @@ export default function LabCompletenessChart() {
       {/* 凡例 */}
       <div style={{ display: 'flex', gap: 12, padding: '8px 16px', borderBottom: '1px solid rgba(148,163,184,0.08)', flexWrap: 'wrap', alignItems: 'center' }}>
         {(tab === 'lab'
-          ? [{ color: '#5046E5', label: '研究概要 (30pt)' }, { color: '#06B6D4', label: '公式HP (20pt)' }, { color: '#10B981', label: 'SNS・動画・その他 (各10pt)' }]
-          : [{ color: '#5046E5', label: 'researchmap (50pt)' }, { color: '#10B981', label: 'X・Instagram (各25pt)' }]
+          ? [{ color: '#5046E5', label: '研究概要' }, { color: '#06B6D4', label: '公式HP' }, { color: '#10B981', label: 'SNS・動画・その他' }]
+          : [{ color: '#5046E5', label: 'researchmap' }, { color: '#10B981', label: 'X・Instagram' }]
         ).map(({ color, label }) => (
           <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: '#64748b' }}>
             <div style={{ width: 8, height: 8, borderRadius: 2, background: color, flexShrink: 0 }} />
