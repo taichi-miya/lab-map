@@ -236,7 +236,7 @@ export default function LabCompletenessChart() {
       </div>
 
       {/* チャート */}
-      <div style={{ padding: '10px 14px 14px', maxHeight: 400, overflowY: 'auto' }}>
+      <div style={{ padding: '10px 14px 14px'}}>
         {loading ? (
           <div style={{ textAlign: 'center', padding: '40px 0', color: '#94a3b8', fontSize: 13 }}>読み込み中...</div>
         ) : rows.map((row, i) => (
