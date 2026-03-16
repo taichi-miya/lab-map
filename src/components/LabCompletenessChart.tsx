@@ -85,24 +85,52 @@ function deptScore(dLabs: Lab[], faculties: Faculty[]): { filled: number; slots:
   return { filled, slots, pct }
 }
 
-function calcDetail(lab: Lab, facs: Faculty[]) {
-  const missing: string[] = []
-  const present: string[] = []
-  for (const f of LAB_FIELDS) {
+// ── 変更点：必須・推奨を分けて返す ──────────────────────────────────────────
+type DetailItem = { label: string; required: boolean }
+
+function calcDetail(lab: Lab, facs: Faculty[]): {
+  missingRequired: DetailItem[]
+  missingBonus:    DetailItem[]
+  present:         DetailItem[]
+} {
+  const missingRequired: DetailItem[] = []
+  const missingBonus:    DetailItem[] = []
+  const present:         DetailItem[] = []
+
+  // ラボ必須
+  for (const f of LAB_REQUIRED) {
     const v = lab[f.key]
-    if (v !== null && v !== undefined && String(v) !== '') present.push(f.label)
-    else missing.push(f.label)
+    if (v !== null && v !== undefined && String(v) !== '') present.push({ label: f.label, required: true })
+    else missingRequired.push({ label: f.label, required: true })
   }
-  for (const f of FAC_FIELDS) {
+  // ラボボーナス
+  for (const f of LAB_BONUS) {
+    const v = lab[f.key]
+    if (v !== null && v !== undefined && String(v) !== '') present.push({ label: f.label, required: false })
+    else missingBonus.push({ label: f.label, required: false })
+  }
+  // 教員必須
+  for (const f of FAC_REQUIRED) {
     const filled = facs.filter(fc => fc[f.key] !== null && fc[f.key] !== undefined && String(fc[f.key]) !== '').length
     const total  = facs.length
-    if (total === 0) { missing.push(`${f.label}（教員なし）`); continue }
-    if (filled === 0)        missing.push(`${f.label} (0/${total}名)`)
-    else if (filled < total) missing.push(`${f.label} (${filled}/${total}名・一部未入力)`)
-    else                     present.push(`${f.label} (${filled}/${total}名)`)
+    if (total === 0) { missingRequired.push({ label: `${f.label}（教員なし）`, required: true }); continue }
+    if (filled === 0)        missingRequired.push({ label: `${f.label} (0/${total}名)`,              required: true })
+    else if (filled < total) missingRequired.push({ label: `${f.label} (${filled}/${total}名・一部)`, required: true })
+    else                     present.push({ label: `${f.label} (${filled}/${total}名)`,              required: true })
   }
-  return { missing, present }
+  // 教員ボーナス
+  for (const f of FAC_BONUS) {
+    const filled = facs.filter(fc => fc[f.key] !== null && fc[f.key] !== undefined && String(fc[f.key]) !== '').length
+    const total  = facs.length
+    if (total === 0) continue
+    if (filled === 0)        missingBonus.push({ label: `${f.label} (0/${total}名)`,               required: false })
+    else if (filled < total) missingBonus.push({ label: `${f.label} (${filled}/${total}名・一部)`, required: false })
+    else                     present.push({ label: `${f.label} (${filled}/${total}名)`,            required: false })
+  }
+
+  return { missingRequired, missingBonus, present }
 }
+// ─────────────────────────────────────────────────────────────────────────────
 
 function barColor(pct: number) {
   if (pct >= 100) return '#7C3AED'
@@ -124,40 +152,69 @@ function Bar({ pct, delay }: { pct: number; delay: number }) {
   )
 }
 
+// ── 変更点：LabTooltip を必須・推奨カラー分けに刷新 ────────────────────────
 function LabTooltip({ lab, facs, score }: { lab: Lab; facs: Faculty[]; score: { filled: number; slots: number; pct: number } }) {
-  const { missing, present } = calcDetail(lab, facs)
+  const { missingRequired, missingBonus, present } = calcDetail(lab, facs)
+
+  // ドット＋テキストの1行コンポーネント
+  const Row = ({ label, dot }: { label: string; dot: string }) => (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '2px 0' }}>
+      <div style={{ width: 5, height: 5, borderRadius: '50%', background: dot, flexShrink: 0 }} />
+      <span style={{ color: 'rgba(255,255,255,0.75)', fontSize: 10 }}>{label}</span>
+    </div>
+  )
+
   return (
-    <div style={{ position: 'absolute', left: 162, top: '50%', transform: 'translateY(-50%)', background: '#1e293b', color: '#fff', borderRadius: 10, padding: '10px 12px', fontSize: 10, zIndex: 200, width: 220, pointerEvents: 'none', boxShadow: '0 8px 24px rgba(0,0,0,0.2)' }}>
+    <div style={{
+      position: 'absolute', left: 162, top: '50%', transform: 'translateY(-50%)',
+      background: '#1e293b', color: '#fff', borderRadius: 10,
+      padding: '10px 12px', fontSize: 10, zIndex: 200, width: 230,
+      pointerEvents: 'none', boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
+    }}>
+      {/* 吹き出し矢印 */}
       <div style={{ position: 'absolute', left: -5, top: '50%', transform: 'translateY(-50%)', width: 0, height: 0, borderTop: '5px solid transparent', borderBottom: '5px solid transparent', borderRight: '5px solid #1e293b' }} />
+
+      {/* タイトル */}
       <p style={{ fontWeight: 700, fontSize: 11, margin: '0 0 4px', lineHeight: 1.4 }}>{lab.name}</p>
-      <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)', margin: '0 0 7px' }}>
-        {score.filled} / {score.slots} 必須項目埋まっています（SNS等はボーナス）
+      <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.45)', margin: '0 0 8px' }}>
+        {score.filled} / {score.slots} 必須項目（SNS等はボーナス）
       </p>
-      {missing.length > 0 && (
+
+      {/* 未入力・必須 */}
+      {missingRequired.length > 0 && (
         <>
-          <p style={{ color: '#f87171', fontWeight: 700, margin: '4px 0 3px', fontSize: 9 }}>▲ 未入力・追加してみませんか</p>
-          {missing.map(l => (
-            <div key={l} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '2px 0' }}>
-              <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#f87171', flexShrink: 0 }} />
-              <span style={{ color: 'rgba(255,255,255,0.7)' }}>{l}</span>
-            </div>
-          ))}
+          <p style={{ margin: '0 0 3px', fontSize: 9, fontWeight: 700, color: '#f87171', display: 'flex', alignItems: 'center', gap: 4 }}>
+            <span style={{ fontSize: 10 }}>✕</span> 未入力・必須
+          </p>
+          {missingRequired.map(item => <Row key={item.label} label={item.label} dot="#f87171" />)}
         </>
       )}
+
+      {/* 未入力・推奨（ボーナス） */}
+      {missingBonus.length > 0 && (
+        <>
+          <p style={{ margin: `${missingRequired.length > 0 ? 7 : 0}px 0 3px`, fontSize: 9, fontWeight: 700, color: '#fbbf24', display: 'flex', alignItems: 'center', gap: 4 }}>
+            <span style={{ fontSize: 10 }}>△</span> 未入力・推奨
+          </p>
+          {missingBonus.map(item => <Row key={item.label} label={item.label} dot="#fbbf24" />)}
+        </>
+      )}
+
+      {/* 入力済み */}
       {present.length > 0 && (
         <>
-          <p style={{ color: '#4ade80', fontWeight: 700, margin: '6px 0 3px', fontSize: 9 }}>✓ 入力済み</p>
-          {present.map(l => (
-            <div key={l} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '2px 0' }}>
-              <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#4ade80', flexShrink: 0 }} />
-              <span style={{ color: 'rgba(255,255,255,0.7)' }}>{l}</span>
-            </div>
+          <p style={{ margin: `${(missingRequired.length > 0 || missingBonus.length > 0) ? 7 : 0}px 0 3px`, fontSize: 9, fontWeight: 700, color: '#4ade80', display: 'flex', alignItems: 'center', gap: 4 }}>
+            <span style={{ fontSize: 10 }}>✓</span> 入力済み
+          </p>
+          {present.map(item => (
+            <Row key={item.label} label={item.label} dot={item.required ? '#4ade80' : '#86efac'} />
           ))}
         </>
       )}
     </div>
   )
 }
+// ─────────────────────────────────────────────────────────────────────────────
 
 export default function LabCompletenessChart() {
   const [labs,      setLabs]      = useState<Lab[]>([])
@@ -256,9 +313,23 @@ export default function LabCompletenessChart() {
             </div>
           ))}
         </div>
-        <span style={{ fontSize: 10, color: '#94a3b8', whiteSpace: 'nowrap', width: '100%' }}>
-          {currentDept ? '研究室にホバーで詳細 💬' : 'クリックで展開 ›'}
-        </span>
+        {/* ── 変更点：凡例にも必須・推奨の凡例を追加 ── */}
+        <div style={{ display: 'flex', gap: 10, width: '100%', alignItems: 'center', marginTop: 2 }}>
+          <span style={{ fontSize: 10, color: '#94a3b8' }}>ポップアップ：</span>
+          {[
+            { color: '#f87171', mark: '✕', label: '未入力・必須' },
+            { color: '#fbbf24', mark: '△', label: '未入力・推奨' },
+            { color: '#4ade80', mark: '✓', label: '入力済み'     },
+          ].map(({ color, mark, label }) => (
+            <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 9, color: '#94a3b8' }}>
+              <span style={{ color, fontWeight: 700, fontSize: 10 }}>{mark}</span>
+              <span>{label}</span>
+            </div>
+          ))}
+          <span style={{ fontSize: 10, color: '#94a3b8', marginLeft: 'auto', whiteSpace: 'nowrap' }}>
+            {currentDept ? '研究室にホバーで詳細 💬' : 'クリックで展開 ›'}
+          </span>
+        </div>
       </div>
 
       {/* チャート */}
