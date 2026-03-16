@@ -55,7 +55,9 @@ const REPORT_STATUS: Record<string, { bg: string; color: string; label: string }
 const FIELD_LABELS: Record<string, string> = {
   summary_text: '📝 研究概要テキスト', lab_url: '🔗 公式HP URL',
   intro_url: '🔗 紹介ページURL', faculty_name: '👤 教員名',
-  student_count: '👥 学生数', instagram_url: '📷 公式Instagram',
+  student_count: '👥 学生数', student_count_doc: '👥 学生数（博士）',
+  student_count_master: '👥 学生数（修士）', student_count_under: '👥 学生数（学部）', 
+  instagram_url: '📷 公式Instagram',
   twitter_url: '🐦 公式X', youtube_channel_url: '▶️ 公式YouTube',
   youtube_video_urls: '▶️ 紹介YouTube', instagram_url_other: '📷 紹介Instagram',
   twitter_url_other: '🐦 紹介X', researchmap: '🔬 researchmap',
@@ -68,6 +70,9 @@ const MULTI_FIELDS = ['youtube_video_urls', 'instagram_url_other', 'twitter_url_
 const LAB_FIELD_MAP: Record<string, string> = {
   summary_text: 'summary_text', lab_url: 'lab_url', intro_url: 'intro_url',
   faculty_name: 'faculty_name', student_count: 'student_count',
+  student_count_doc:    'student_count_doc',
+  student_count_master: 'student_count_master',
+  student_count_under:  'student_count_under',
   instagram_url: 'instagram_url', twitter_url: 'twitter_url',
   youtube_channel_url: 'youtube_channel_url',
   youtube_video_urls: 'youtube_video_urls',
