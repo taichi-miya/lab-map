@@ -13,13 +13,13 @@ const sb = createClient(
 type Lab     = { id: string; name: string; faculty_name: string | null; dept: string | null }
 type Faculty = { id: string; name: string; role: string | null }
 
-type FieldDef = { label: string; hint?: string; isUrl?: boolean; isMulti?: boolean }
+type FieldDef = { label: string; hint?: string; isUrl?: boolean; isMulti?: boolean; isStudent?: boolean }
 
 const LAB_FIELD_DEFS: Record<string, FieldDef> = {
   summary_text:        { label: '📝 研究概要テキスト' },
   lab_url:             { label: '🔗 公式HP URL',                 isUrl: true },
   intro_url:           { label: '🔗 紹介ページ URL（研究科等）', isUrl: true },
-  student_count:       { label: '👥 学生数',                     hint: '数字のみ（例: 12）' },
+  student_count:       { label: '👥 学生数',                     isStudent: true },
   instagram_url:       { label: '📷 公式 Instagram URL',        isUrl: true },
   twitter_url:         { label: '🐦 公式 X URL',                isUrl: true },
   youtube_channel_url: { label: '▶️ 公式 YouTube チャンネル',   isUrl: true },
@@ -70,6 +70,12 @@ function ContributeInner() {
   const [textVal,    setTextVal]    = useState('')
   const [multiUrls,  setMultiUrls]  = useState<string[]>([''])
 
+  // 学生数内訳
+  const [docCount,    setDocCount]    = useState('')
+  const [masterCount, setMasterCount] = useState('')
+  const [underCount,  setUnderCount]  = useState('')
+  const [totalCount,  setTotalCount]  = useState('')
+
   const [guestName,  setGuestName]  = useState('')
   const [guestEmail, setGuestEmail] = useState('')
   const [loading,    setLoading]    = useState(false)
@@ -94,13 +100,33 @@ function ContributeInner() {
   )
 
   const currentFieldDefs = targetType === 'lab' ? LAB_FIELD_DEFS : FAC_FIELD_DEFS
-  const fieldDef  = fieldKey ? currentFieldDefs[fieldKey] : null
-  const isMulti   = !!fieldDef?.isMulti
+  const fieldDef    = fieldKey ? currentFieldDefs[fieldKey] : null
+  const isMulti     = !!fieldDef?.isMulti
+  const isStudent   = !!fieldDef?.isStudent
   const selectedFac = faculties.find(f => f.id === facId)
 
+  // 学生数の自動合計
+  const autoTotal = Number(docCount || 0) + Number(masterCount || 0) + Number(underCount || 0)
+  const hasBreakdown = Number(docCount) > 0 || Number(masterCount) > 0 || Number(underCount) > 0
+
   function getFinalValue(): string {
-    if (isMulti) return multiUrls.filter(u => u.trim()).join('\n')
+    if (isStudent) return hasBreakdown ? String(autoTotal) : totalCount.trim()
+    if (isMulti)   return multiUrls.filter(u => u.trim()).join('\n')
     return textVal.trim()
+  }
+
+  // Step3の確認表示用
+  function getConfirmRows(): [string, string][] {
+    if (isStudent) {
+      const rows: [string, string][] = []
+      if (Number(docCount)    > 0) rows.push(['博士課程',    `${docCount}名`])
+      if (Number(masterCount) > 0) rows.push(['修士課程',    `${masterCount}名`])
+      if (Number(underCount)  > 0) rows.push(['学部',        `${underCount}名`])
+      if (hasBreakdown)            rows.push(['全体（自動）', `${autoTotal}名`])
+      else if (totalCount)         rows.push(['全体',         `${totalCount}名`])
+      return rows
+    }
+    return [['内容', getFinalValue()]]
   }
 
   function handleLabSelect(id: string, name: string) {
@@ -111,19 +137,68 @@ function ContributeInner() {
   function handleNext2() {
     if (targetType === 'faculty' && !facId) { setError('教員を選択してください'); return }
     if (!fieldKey) { setError('提供する情報の種類を選択してください'); return }
-    setError(''); setTextVal(''); setMultiUrls(['']); setStep(3)
+    setError('')
+    setTextVal(''); setMultiUrls([''])
+    setDocCount(''); setMasterCount(''); setUnderCount(''); setTotalCount('')
+    setStep(3)
+  }
+
+  function handleNext3() {
+    if (isStudent) {
+      if (!hasBreakdown && !totalCount.trim()) { setError('学生数を入力してください'); return }
+    } else {
+      const v = getFinalValue()
+      if (!v) { setError('内容を入力してください'); return }
+    }
+    setError(''); setStep(4)
   }
 
   async function handleSubmit() {
-    const value = getFinalValue()
-    if (!value) { setError('内容を入力してください'); return }
     setLoading(true); setError('')
 
+    const contributor = user
+      ? (user.fullName ?? user.username ?? user.emailAddresses[0]?.emailAddress ?? 'Labo Naviユーザー')
+      : null
+
+    const basePayload = {
+      lab_id:      labId,
+      target_type: targetType === 'faculty' ? 'faculty' : 'lab',
+      target_id:   targetType === 'faculty' ? facId : labId,
+      contributor,
+      guest_name:  !user ? (guestName || null) : null,
+      guest_email: !user ? (guestEmail || null) : null,
+    }
+
+    // 学生数は複数フィールドを一括送信
+    if (isStudent) {
+      const sends: { field: string; new_value: string }[] = []
+      if (Number(docCount)    > 0) sends.push({ field: 'student_count_doc',    new_value: docCount })
+      if (Number(masterCount) > 0) sends.push({ field: 'student_count_master', new_value: masterCount })
+      if (Number(underCount)  > 0) sends.push({ field: 'student_count_under',  new_value: underCount })
+      // 全体は内訳の合計 or 手入力
+      const total = hasBreakdown ? String(autoTotal) : totalCount.trim()
+      if (total) sends.push({ field: 'student_count', new_value: total })
+
+      let ok = true
+      for (const s of sends) {
+        const res = await fetch('/api/contribute', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...basePayload, ...s }),
+        })
+        if (!res.ok) ok = false
+      }
+      if (ok) setSubmitted(true)
+      else setError('送信に失敗しました。もう一度お試しください。')
+      setLoading(false)
+      return
+    }
+
+    // 通常フィールド
+    const value = getFinalValue()
     let saveValue = value
     if (fieldKey === 'fac_researchmap' && value.includes('researchmap.jp/')) {
       saveValue = value.split('researchmap.jp/').pop()?.split('/')[0] ?? value
     }
-
     const dbField = (() => {
       if (fieldKey === 'fac_researchmap') return 'researchmap_id'
       if (fieldKey === 'fac_twitter_url') return 'twitter_url'
@@ -132,22 +207,9 @@ function ContributeInner() {
       return fieldKey
     })()
 
-    const contributor = user
-      ? (user.fullName ?? user.username ?? user.emailAddresses[0]?.emailAddress ?? 'Labo Naviユーザー')
-      : null
-
     const res = await fetch('/api/contribute', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        lab_id:      labId,
-        target_type: targetType === 'faculty' ? 'faculty' : 'lab',
-        target_id:   targetType === 'faculty' ? facId : labId,
-        field:       dbField,
-        new_value:   saveValue,
-        contributor,
-        guest_name:  !user ? (guestName || null) : null,
-        guest_email: !user ? (guestEmail || null) : null,
-      }),
+      body: JSON.stringify({ ...basePayload, field: dbField, new_value: saveValue }),
     })
 
     if (res.ok) setSubmitted(true)
@@ -165,12 +227,9 @@ function ContributeInner() {
         </p>
         <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
           <button onClick={() => {
-            setSubmitted(false)
-            setStep(2)
-            setFieldKey('')
-            setFacId('')
-            setTextVal('')
-            setMultiUrls([''])
+            setSubmitted(false); setStep(2); setFieldKey(''); setFacId('')
+            setTextVal(''); setMultiUrls([''])
+            setDocCount(''); setMasterCount(''); setUnderCount(''); setTotalCount('')
           }}
             style={{ padding: '10px 20px', borderRadius: 8, border: '1.5px solid #E5E7EB', background: 'white', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
             続けて投稿する（同じ研究室）
@@ -345,7 +404,49 @@ function ContributeInner() {
           <div style={card}>
             <Label text={`${fieldDef.label}を入力してください`} hint={fieldDef.hint} />
 
-            {isMulti ? (
+            {/* 学生数専用UI */}
+            {isStudent ? (
+              <div>
+                {/* 内訳入力 */}
+                <p style={{ fontSize: 11, color: '#6B7280', margin: '0 0 10px', fontWeight: 600 }}>内訳（わかる範囲で入力）</p>
+                {[
+                  { key: 'doc',    label: '博士課程', val: docCount,    set: setDocCount    },
+                  { key: 'master', label: '修士課程', val: masterCount, set: setMasterCount },
+                  { key: 'under',  label: '学部',     val: underCount,  set: setUnderCount  },
+                ].map(({ key, label, val, set }) => (
+                  <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                    <span style={{ fontSize: 12, color: '#6B7280', width: 72, flexShrink: 0 }}>{label}</span>
+                    <input type="number" min="0" placeholder="0" value={val}
+                      onChange={e => set(e.target.value)}
+                      style={{ ...inp, width: 90 }} />
+                    <span style={{ fontSize: 12, color: '#9CA3AF' }}>名</span>
+                  </div>
+                ))}
+
+                {/* 自動合計表示 */}
+                {hasBreakdown && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 8, marginBottom: 12 }}>
+                    <span style={{ fontSize: 12, color: '#166534', fontWeight: 700 }}>合計 {autoTotal}名</span>
+                    <span style={{ fontSize: 11, color: '#16A34A' }}>→ 全体学生数に自動入力されます</span>
+                  </div>
+                )}
+
+                {/* 内訳不明の場合は全体のみ */}
+                <div style={{ borderTop: '1px solid #E5E7EB', paddingTop: 12, marginTop: 4 }}>
+                  <p style={{ fontSize: 11, color: '#9CA3AF', margin: '0 0 8px' }}>内訳がわからない場合は全体のみ入力</p>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ fontSize: 12, color: '#6B7280', width: 72, flexShrink: 0 }}>全体</span>
+                    <input type="number" min="0" placeholder="0"
+                      value={hasBreakdown ? String(autoTotal) : totalCount}
+                      onChange={e => { if (!hasBreakdown) setTotalCount(e.target.value) }}
+                      disabled={hasBreakdown}
+                      style={{ ...inp, width: 90, background: hasBreakdown ? '#F9FAFB' : 'white', color: hasBreakdown ? '#9CA3AF' : '#1F2937' }} />
+                    <span style={{ fontSize: 12, color: '#9CA3AF' }}>名</span>
+                  </div>
+                </div>
+                <div style={{ height: 16 }} />
+              </div>
+            ) : isMulti ? (
               <div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 10 }}>
                   {multiUrls.map((u, i) => (
@@ -377,11 +478,7 @@ function ContributeInner() {
             <div style={{ display: 'flex', gap: 8 }}>
               <button onClick={() => setStep(2)}
                 style={{ flex: 1, padding: '11px', borderRadius: 9, border: '1px solid #E5E7EB', background: 'white', fontSize: 13, cursor: 'pointer' }}>← 戻る</button>
-              <button onClick={() => {
-                const v = getFinalValue()
-                if (!v) { setError('内容を入力してください'); return }
-                setError(''); setStep(4)
-              }}
+              <button onClick={handleNext3}
                 style={{ flex: 2, padding: '11px', borderRadius: 9, border: 'none', background: '#1D4ED8', color: 'white', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
                 確認する →
               </button>
@@ -398,10 +495,10 @@ function ContributeInner() {
               <table style={{ width: '100%', fontSize: 13, borderCollapse: 'collapse' }}>
                 <tbody>
                   {[
-                    ['研究室', labName],
-                    ...(targetType === 'faculty' ? [['教員', selectedFac?.name ?? '']] : []),
-                    ['情報の種類', fieldDef?.label ?? ''],
-                    ['内容', getFinalValue()],
+                    ['研究室', labName] as [string, string],
+                    ...(targetType === 'faculty' ? [['教員', selectedFac?.name ?? ''] as [string, string]] : []),
+                    ['情報の種類', fieldDef?.label ?? ''] as [string, string],
+                    ...getConfirmRows(),
                   ].map(([k, v]) => (
                     <tr key={k} style={{ borderBottom: '1px solid #F3F4F6' }}>
                       <td style={{ padding: '7px 0', color: '#6B7280', fontWeight: 600, width: 90, verticalAlign: 'top' }}>{k}</td>

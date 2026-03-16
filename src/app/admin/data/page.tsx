@@ -20,18 +20,21 @@ type LabFieldDef = {
   hasSource?: boolean; hasYear?: boolean; isUrl?: boolean; isImage?: boolean
 }
 const LAB_FIELDS: Record<string, LabFieldDef> = {
-  summary_text:        { label:'📝 研究概要テキスト（HPから）',         col:'summary_text',        group:'basic', hasSource:true },
-  summary_text_image:  { label:'📷 研究概要テキスト（スクショから）',   col:'summary_text',        group:'basic', hasSource:true, isImage:true },
-  lab_url:             { label:'🔗 公式HPのURL',                       col:'lab_url',             group:'basic', isUrl:true },
-  intro_url:           { label:'🔗 紹介ページのURL（研究科HP等）',      col:'intro_url',           group:'basic', isUrl:true },
-  faculty_name:        { label:'👤 教員名',                            col:'faculty_name',        group:'basic', hasSource:true },
-  student_count:       { label:'👥 学生数（年度・出典つき）',           col:'student_count',       group:'basic', hasSource:true, hasYear:true },
-  instagram_url:       { label:'📷 公式 Instagram URL',               col:'instagram_url',       group:'sns', isUrl:true },
-  twitter_url:         { label:'🐦 公式 X（Twitter）URL',             col:'twitter_url',         group:'sns', isUrl:true },
-  youtube_channel_url: { label:'▶️  公式 YouTube チャンネル URL',      col:'youtube_channel_url', group:'sns', isUrl:true },
-  youtube_video_urls:  { label:'▶️  紹介 YouTube 動画 URL（非公式）',  col:'youtube_video_urls',  group:'sns', isUrl:true },
-  instagram_url_other: { label:'📷 紹介 Instagram URL（非公式）',      col:'instagram_url_other', group:'sns', isUrl:true },
-  twitter_url_other:   { label:'🐦 紹介 X URL（非公式）',             col:'twitter_url_other',   group:'sns', isUrl:true },
+  summary_text:         { label:'📝 研究概要テキスト（HPから）',          col:'summary_text',         group:'basic', hasSource:true },
+  summary_text_image:   { label:'📷 研究概要テキスト（スクショから）',    col:'summary_text',         group:'basic', hasSource:true, isImage:true },
+  lab_url:              { label:'🔗 公式HPのURL',                        col:'lab_url',              group:'basic', isUrl:true },
+  intro_url:            { label:'🔗 紹介ページのURL（研究科HP等）',       col:'intro_url',            group:'basic', isUrl:true },
+  faculty_name:         { label:'👤 教員名',                             col:'faculty_name',         group:'basic', hasSource:true },
+  student_count:        { label:'👥 学生数・全体（年度・出典つき）',      col:'student_count',        group:'basic', hasSource:true, hasYear:true },
+  student_count_doc:    { label:'👥 学生数・博士課程',                    col:'student_count_doc',    group:'basic', hasYear:true },
+  student_count_master: { label:'👥 学生数・修士課程',                    col:'student_count_master', group:'basic', hasYear:true },
+  student_count_under:  { label:'👥 学生数・学部',                        col:'student_count_under',  group:'basic', hasYear:true },
+  instagram_url:        { label:'📷 公式 Instagram URL',                col:'instagram_url',        group:'sns', isUrl:true },
+  twitter_url:          { label:'🐦 公式 X（Twitter）URL',              col:'twitter_url',          group:'sns', isUrl:true },
+  youtube_channel_url:  { label:'▶️  公式 YouTube チャンネル URL',       col:'youtube_channel_url',  group:'sns', isUrl:true },
+  youtube_video_urls:   { label:'▶️  紹介 YouTube 動画 URL（非公式）',   col:'youtube_video_urls',   group:'sns', isUrl:true },
+  instagram_url_other:  { label:'📷 紹介 Instagram URL（非公式）',       col:'instagram_url_other',  group:'sns', isUrl:true },
+  twitter_url_other:    { label:'🐦 紹介 X URL（非公式）',              col:'twitter_url_other',    group:'sns', isUrl:true },
 }
 const MULTI_FIELDS = ['youtube_video_urls', 'instagram_url_other', 'twitter_url_other']
 
@@ -120,7 +123,6 @@ export default function AdminDataPage() {
   useEffect(() => { if (labId && target === 'lab') fetchCurrentLabVal(labId, labFieldKey); resetInput() }, [labFieldKey])
   useEffect(() => { if (facId) fetchCurrentFacVal(facId, facFieldKey); resetInput() }, [facId, facFieldKey])
 
-  // Clerkログイン済みなら自動でrole取得
   useEffect(() => {
     if (isLoaded && user && !authed) handleClerkLogin()
   }, [isLoaded, user])
@@ -243,7 +245,6 @@ export default function AdminDataPage() {
     setLoading(true)
 
     try {
-      // superadmin も admin 権限で動作する
       const isAdmin = userRole === 'admin' || userRole === 'superadmin'
 
       if (target === 'faculty' && facFieldKey === 'publication') {
@@ -381,25 +382,21 @@ export default function AdminDataPage() {
   const isMulti    = target === 'lab' && MULTI_FIELDS.includes(labFieldKey)
   const isUrl      = target === 'lab' ? !!labDef?.isUrl : !!facDef?.isUrl
   const isImage    = target === 'lab' ? !!labDef?.isImage : false
-  // superadmin も admin 権限で動作
   const isAdmin    = userRole === 'admin' || userRole === 'superadmin'
   const isSuperAdmin = userRole === 'superadmin'
 
-  // ロールバッジの表示設定
   const roleBadge = {
     superadmin: { icon:'👑', label:'superadmin', bg:'#EFF6FF', color:'#1D4ED8', border:'#BFDBFE' },
     admin:      { icon:'🔑', label:'admin',      bg:'#F0FDF4', color:'#16A34A', border:'#BBF7D0' },
     contributor:{ icon:'✏️', label:'contributor', bg:'#F9FAFB', color:'#6B7280', border:'#E5E7EB' },
   }[userRole]
 
-  // ── ログイン画面
   if (!authed) return (
     <main style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:'#F9FAFB', fontFamily:font }}>
       <div style={{ background:'white', borderRadius:16, padding:'32px 28px', width:380, border:'1px solid #E5E7EB' }}>
         <h1 style={{ fontSize:17, fontWeight:800, margin:'0 0 4px' }}>データ投入</h1>
         <p style={{ fontSize:12, color:'#9CA3AF', margin:'0 0 24px' }}>ログインして情報を提供・更新できます</p>
 
-        {/* Clerkログイン（メイン） */}
         <div style={{ marginBottom:20 }}>
           <p style={{ fontSize:11, fontWeight:700, color:'#6B7280', margin:'0 0 8px' }}>Clerkアカウントをお持ちの方</p>
           {!isLoaded ? (
@@ -427,14 +424,12 @@ export default function AdminDataPage() {
           )}
         </div>
 
-        {/* 区切り */}
         <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:20 }}>
           <div style={{ flex:1, height:1, background:'#E5E7EB' }} />
           <span style={{ fontSize:11, color:'#9CA3AF' }}>または</span>
           <div style={{ flex:1, height:1, background:'#E5E7EB' }} />
         </div>
 
-        {/* パスワードログイン（外部協力者向け） */}
         <div>
           <p style={{ fontSize:11, fontWeight:700, color:'#6B7280', margin:'0 0 8px' }}>Clerkアカウントをお持ちでない方（外部協力者）</p>
           <div style={{ display:'flex', gap:6, marginBottom:12 }}>
@@ -495,7 +490,6 @@ export default function AdminDataPage() {
     </main>
   )
 
-  // ── メイン画面
   return (
     <main style={{ minHeight:'100vh', background:'#F9FAFB', fontFamily:font }}>
       <header style={{ background:'white', borderBottom:'1px solid #E5E7EB', padding:'12px 16px', display:'flex', alignItems:'center', justifyContent:'space-between', position:'sticky', top:0, zIndex:10 }}>
@@ -504,19 +498,16 @@ export default function AdminDataPage() {
           <span style={{ fontSize:11, color:'#9CA3AF', marginLeft:8 }}>研究室DBの更新</span>
         </div>
         <div style={{ display:'flex', gap:6, alignItems:'center', flexWrap:'wrap' }}>
-          {/* ロールバッジ */}
           <span style={{ fontSize:12, padding:'4px 10px', borderRadius:20,
             background: roleBadge.bg, color: roleBadge.color,
             border: `1px solid ${roleBadge.border}`, fontWeight:700 }}>
             {roleBadge.icon} {userName}
           </span>
-          {/* superadmin: メンバー管理 */}
           {isSuperAdmin && (
             <a href="/admin/data/members" style={{ fontSize:12, color:'#7C3AED', textDecoration:'none', padding:'5px 10px', borderRadius:7, border:'1px solid #DDD6FE', background:'#F5F3FF', fontWeight:600 }}>
               👥 メンバー管理
             </a>
           )}
-          {/* admin以上: 承認待ち確認 */}
           {isAdmin && (
             <a href="/admin/data/review" style={{ fontSize:12, color:'#D97706', textDecoration:'none', padding:'5px 10px', borderRadius:7, border:'1px solid #FDE68A', background:'#FFFBEB', fontWeight:600 }}>
               📋 承認待ち確認
@@ -527,7 +518,6 @@ export default function AdminDataPage() {
         </div>
       </header>
 
-      {/* contributorへの案内バナー */}
       {!isAdmin && (
         <div style={{ background:'#FFFBEB', borderBottom:'1px solid #FDE68A', padding:'10px 16px', textAlign:'center' }}>
           <p style={{ fontSize:12, color:'#92400E', margin:0 }}>
