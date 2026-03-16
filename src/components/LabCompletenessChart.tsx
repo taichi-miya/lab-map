@@ -14,6 +14,9 @@ type Lab = {
   instagram_url: string | null; twitter_url: string | null
   youtube_channel_url: string | null; intro_url: string | null
   student_count: number | null
+  student_count_doc: number | null
+  student_count_master: number | null
+  student_count_under: number | null
 }
 type Faculty = {
   id: string; lab_id: string; name: string
@@ -36,7 +39,10 @@ const LAB_BONUS: { key: keyof Lab; label: string }[] = [
   { key: 'twitter_url',         label: '公式X'            },
   { key: 'youtube_channel_url', label: 'YouTubeチャンネル' },
   { key: 'intro_url',           label: '紹介ページURL'     },
-  { key: 'student_count',       label: '学生数'            },
+  { key: 'student_count',       label: '学生数（全体）'    },
+  { key: 'student_count_doc',    label: '学生数（博士）'   },
+  { key: 'student_count_master', label: '学生数（修士）'   },
+  { key: 'student_count_under',  label: '学生数（学部）'   },
 ]
 const FAC_BONUS: { key: keyof Faculty; label: string }[] = [
   { key: 'twitter_url',   label: 'X（教員）'         },
@@ -99,9 +105,9 @@ function calcDetail(lab: Lab, facs: Faculty[]) {
 }
 
 function barColor(pct: number) {
-  if (pct >= 100) return '#7C3AED' // 紫：100%超え
-  if (pct >= 60)  return '#10B981' // 緑
-  if (pct >= 30)  return '#06B6D4' // 青
+  if (pct >= 100) return '#7C3AED'
+  if (pct >= 60)  return '#10B981'
+  if (pct >= 30)  return '#06B6D4'
   return '#5046E5'
 }
 
@@ -125,7 +131,7 @@ function LabTooltip({ lab, facs, score }: { lab: Lab; facs: Faculty[]; score: { 
       <div style={{ position: 'absolute', left: -5, top: '50%', transform: 'translateY(-50%)', width: 0, height: 0, borderTop: '5px solid transparent', borderBottom: '5px solid transparent', borderRight: '5px solid #1e293b' }} />
       <p style={{ fontWeight: 700, fontSize: 11, margin: '0 0 4px', lineHeight: 1.4 }}>{lab.name}</p>
       <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)', margin: '0 0 7px' }}>
-        {score.filled} / {score.slots} 必須項目埋まっています（SNSはボーナス）
+        {score.filled} / {score.slots} 必須項目埋まっています（SNS等はボーナス）
       </p>
       {missing.length > 0 && (
         <>
@@ -162,7 +168,7 @@ export default function LabCompletenessChart() {
 
   useEffect(() => {
     Promise.all([
-      sb.from('labs').select('id,name,dept,faculty_name,summary_text,lab_url,instagram_url,twitter_url,youtube_channel_url,intro_url,student_count').not('dept', 'is', null),
+      sb.from('labs').select('id,name,dept,faculty_name,summary_text,lab_url,instagram_url,twitter_url,youtube_channel_url,intro_url,student_count,student_count_doc,student_count_master,student_count_under').not('dept', 'is', null),
       sb.from('faculties').select('id,lab_id,name,researchmap_id,twitter_url,instagram_url'),
     ]).then(([lr, fr]) => {
       if (lr.data) setLabs(lr.data)
