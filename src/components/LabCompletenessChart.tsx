@@ -21,24 +21,32 @@ type Faculty = {
 }
 type Crumb = { label: string; dept: string }
 
-// 研究室の埋めるべき項目（7項目）
-const LAB_FIELDS: { key: keyof Lab; label: string }[] = [
-  { key: 'summary_text',        label: '研究概要テキスト'  },
-  { key: 'lab_url',             label: '公式HP URL'       },
+// 分母に含める必須項目
+const LAB_REQUIRED: { key: keyof Lab; label: string }[] = [
+  { key: 'summary_text', label: '研究概要テキスト' },
+  { key: 'lab_url',      label: '公式HP URL'       },
+]
+const FAC_REQUIRED: { key: keyof Faculty; label: string }[] = [
+  { key: 'researchmap_id', label: 'researchmap（教員）' },
+]
+
+// 分母に含めないがあれば分子に加算するボーナス項目
+const LAB_BONUS: { key: keyof Lab; label: string }[] = [
   { key: 'instagram_url',       label: '公式Instagram'    },
   { key: 'twitter_url',         label: '公式X'            },
   { key: 'youtube_channel_url', label: 'YouTubeチャンネル' },
   { key: 'intro_url',           label: '紹介ページURL'     },
   { key: 'student_count',       label: '学生数'            },
 ]
-// 教員の埋めるべき項目（3項目）
-const FAC_FIELDS: { key: keyof Faculty; label: string }[] = [
-  { key: 'researchmap_id', label: 'researchmap（教員）' },
-  { key: 'twitter_url',    label: 'X（教員）'           },
-  { key: 'instagram_url',  label: 'Instagram（教員）'   },
+const FAC_BONUS: { key: keyof Faculty; label: string }[] = [
+  { key: 'twitter_url',   label: 'X（教員）'         },
+  { key: 'instagram_url', label: 'Instagram（教員）' },
 ]
 
-// ── スコア計算（埋まっている個数 / 埋めるべき個数合計） ──
+// tooltip表示用
+const LAB_FIELDS = [...LAB_REQUIRED, ...LAB_BONUS]
+const FAC_FIELDS = [...FAC_REQUIRED, ...FAC_BONUS]
+
 function calcFilled(lab: Lab): number {
   return LAB_FIELDS.filter(f => {
     const v = lab[f.key]
@@ -52,27 +60,25 @@ function calcFacFilled(facs: Faculty[]): number {
   return n
 }
 
-// 研究室1件のスコア
+// 分母は必須項目のみ・分子はボーナス込み → 100%超えあり
 function labScore(lab: Lab, facs: Faculty[]): { filled: number; slots: number; pct: number } {
   const filled = calcFilled(lab) + calcFacFilled(facs)
-  const slots  = LAB_FIELDS.length + facs.length * FAC_FIELDS.length
-  const pct    = slots === 0 ? 0 : Math.round(filled / slots * 1000) / 10 // 小数第1位
+  const slots  = LAB_REQUIRED.length + facs.length * FAC_REQUIRED.length
+  const pct    = slots === 0 ? 0 : Math.round(filled / slots * 1000) / 10
   return { filled, slots, pct }
 }
 
-// 専攻のスコア（研究室＋教員をまとめて計算）
 function deptScore(dLabs: Lab[], faculties: Faculty[]): { filled: number; slots: number; pct: number } {
   let filled = 0, slots = 0
   for (const lab of dLabs) {
     const facs = faculties.filter(f => f.lab_id === lab.id)
     filled += calcFilled(lab) + calcFacFilled(facs)
-    slots  += LAB_FIELDS.length + facs.length * FAC_FIELDS.length
+    slots  += LAB_REQUIRED.length + facs.length * FAC_REQUIRED.length
   }
   const pct = slots === 0 ? 0 : Math.round(filled / slots * 1000) / 10
   return { filled, slots, pct }
 }
 
-// tooltip用の詳細
 function calcDetail(lab: Lab, facs: Faculty[]) {
   const missing: string[] = []
   const present: string[] = []
@@ -85,7 +91,7 @@ function calcDetail(lab: Lab, facs: Faculty[]) {
     const filled = facs.filter(fc => fc[f.key] !== null && fc[f.key] !== undefined && String(fc[f.key]) !== '').length
     const total  = facs.length
     if (total === 0) { missing.push(`${f.label}（教員なし）`); continue }
-    if (filled === 0)      missing.push(`${f.label} (0/${total}名)`)
+    if (filled === 0)        missing.push(`${f.label} (0/${total}名)`)
     else if (filled < total) missing.push(`${f.label} (${filled}/${total}名・一部未入力)`)
     else                     present.push(`${f.label} (${filled}/${total}名)`)
   }
@@ -93,15 +99,16 @@ function calcDetail(lab: Lab, facs: Faculty[]) {
 }
 
 function barColor(pct: number) {
-  if (pct >= 60) return '#10B981'
-  if (pct >= 30) return '#06B6D4'
+  if (pct >= 100) return '#7C3AED' // 紫：100%超え
+  if (pct >= 60)  return '#10B981' // 緑
+  if (pct >= 30)  return '#06B6D4' // 青
   return '#5046E5'
 }
 
 function Bar({ pct, delay }: { pct: number; delay: number }) {
   const [width, setWidth] = useState(0)
   useEffect(() => {
-    const t = setTimeout(() => setWidth(pct), delay)
+    const t = setTimeout(() => setWidth(Math.min(pct, 100)), delay)
     return () => clearTimeout(t)
   }, [pct, delay])
   return (
@@ -117,7 +124,9 @@ function LabTooltip({ lab, facs, score }: { lab: Lab; facs: Faculty[]; score: { 
     <div style={{ position: 'absolute', left: 162, top: '50%', transform: 'translateY(-50%)', background: '#1e293b', color: '#fff', borderRadius: 10, padding: '10px 12px', fontSize: 10, zIndex: 200, width: 220, pointerEvents: 'none', boxShadow: '0 8px 24px rgba(0,0,0,0.2)' }}>
       <div style={{ position: 'absolute', left: -5, top: '50%', transform: 'translateY(-50%)', width: 0, height: 0, borderTop: '5px solid transparent', borderBottom: '5px solid transparent', borderRight: '5px solid #1e293b' }} />
       <p style={{ fontWeight: 700, fontSize: 11, margin: '0 0 4px', lineHeight: 1.4 }}>{lab.name}</p>
-      <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)', margin: '0 0 7px' }}>{score.filled} / {score.slots} 項目埋まっています</p>
+      <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)', margin: '0 0 7px' }}>
+        {score.filled} / {score.slots} 必須項目埋まっています（SNSはボーナス）
+      </p>
       {missing.length > 0 && (
         <>
           <p style={{ color: '#f87171', fontWeight: 700, margin: '4px 0 3px', fontSize: 9 }}>▲ 未入力・追加してみませんか</p>
@@ -162,15 +171,14 @@ export default function LabCompletenessChart() {
     })
   }, [])
 
-  const goRoot  = () => { setStack([]);                                    setHoverId(null) }
-  const goStack = (i: number) => { setStack(s => s.slice(0, i + 1));      setHoverId(null) }
-  const goDept  = (dept: string) => { setStack([{ label: dept, dept }]);  setHoverId(null) }
+  const goRoot  = () => { setStack([]);                                   setHoverId(null) }
+  const goStack = (i: number) => { setStack(s => s.slice(0, i + 1));     setHoverId(null) }
+  const goDept  = (dept: string) => { setStack([{ label: dept, dept }]); setHoverId(null) }
 
   const currentDept = stack.length > 0 ? stack[stack.length - 1].dept : null
 
   const rows = (() => {
     if (!currentDept) {
-      // 専攻一覧：専攻内の全研究室＋全教員で厳密計算
       const depts = [...new Set(labs.map(l => l.dept))].sort()
       return depts.map(dept => {
         const dLabs = labs.filter(l => l.dept === dept)
@@ -178,13 +186,12 @@ export default function LabCompletenessChart() {
         return {
           id: dept, label: dept,
           sub: `${dLabs.length}研究室`,
-          subDetail: `${filled}/${slots}項目`,
+          subDetail: `${filled}/${slots}必須`,
           pct, isDept: true, lab: null as Lab | null, facs: [] as Faculty[],
           score: { filled, slots, pct },
         }
       }).sort((a, b) => b.pct - a.pct)
     } else {
-      // 研究室一覧：研究室ごとに厳密計算
       return labs
         .filter(l => l.dept === currentDept)
         .map(lab => {
@@ -193,7 +200,7 @@ export default function LabCompletenessChart() {
           return {
             id: lab.id, label: lab.name,
             sub: lab.faculty_name ?? '',
-            subDetail: `${score.filled}/${score.slots}項目`,
+            subDetail: `${score.filled}/${score.slots}必須`,
             pct: score.pct, isDept: false, lab, facs, score,
           }
         })
@@ -228,15 +235,28 @@ export default function LabCompletenessChart() {
       {/* 凡例 */}
       <div style={{ display: 'flex', gap: 8, padding: '8px 16px', borderBottom: '1px solid rgba(148,163,184,0.08)', flexWrap: 'wrap', alignItems: 'center' }}>
         <div style={{ fontSize: 10, color: '#64748b' }}>
-          充実度 = 埋まっている項目数 ÷ 埋めるべき項目数（研究室7項目 × 研究室数 ＋ 教員3項目 × 教員数）
+          充実度 = 全項目数 ÷ 必須項目数（研究概要・HP・researchmap）。SNS等は100%超えに貢献。
         </div>
-        <span style={{ marginLeft: 'auto', fontSize: 10, color: '#94a3b8', whiteSpace: 'nowrap' }}>
+        <div style={{ display: 'flex', gap: 8, marginLeft: 'auto', alignItems: 'center' }}>
+          {[
+            { color: '#5046E5', label: '〜30%' },
+            { color: '#06B6D4', label: '30〜60%' },
+            { color: '#10B981', label: '60〜100%' },
+            { color: '#7C3AED', label: '100%超' },
+          ].map(({ color, label }) => (
+            <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 9, color: '#94a3b8' }}>
+              <div style={{ width: 8, height: 8, borderRadius: 2, background: color, flexShrink: 0 }} />
+              {label}
+            </div>
+          ))}
+        </div>
+        <span style={{ fontSize: 10, color: '#94a3b8', whiteSpace: 'nowrap', width: '100%' }}>
           {currentDept ? '研究室にホバーで詳細 💬' : 'クリックで展開 ›'}
         </span>
       </div>
 
       {/* チャート */}
-      <div style={{ padding: '10px 14px 14px', maxHeight: 'auto', overflowY: 'auto' }}>
+      <div style={{ padding: '10px 14px 14px' }}>
         {loading ? (
           <div style={{ textAlign: 'center', padding: '40px 0', color: '#94a3b8', fontSize: 13 }}>読み込み中...</div>
         ) : rows.map((row, i) => (
@@ -249,7 +269,7 @@ export default function LabCompletenessChart() {
             >
               <div style={{ width: 150, flexShrink: 0 }}>
                 <div
-                  style={{ fontSize: 11, color: row.isDept ? '#334155' : '#5046E5', lineHeight: 1.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: row.isDept ? 600 : 500, cursor: row.isDept ? 'pointer' : 'pointer', textDecoration: row.isDept ? 'none' : 'underline' }}
+                  style={{ fontSize: 11, color: row.isDept ? '#334155' : '#5046E5', lineHeight: 1.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: row.isDept ? 600 : 500, cursor: 'pointer', textDecoration: row.isDept ? 'none' : 'underline' }}
                   onClick={e => { if (!row.isDept) { e.stopPropagation(); window.location.href = `/lab/${row.id}` } }}
                 >
                   {row.label}
@@ -259,7 +279,9 @@ export default function LabCompletenessChart() {
                 </div>
               </div>
               <Bar pct={row.pct} delay={40 + i * 25} />
-              <div style={{ width: 38, fontSize: 10, color: '#94a3b8', textAlign: 'right', flexShrink: 0, fontWeight: 600 }}>{row.pct}%</div>
+              <div style={{ width: 42, fontSize: 10, color: row.pct >= 100 ? '#7C3AED' : '#94a3b8', textAlign: 'right', flexShrink: 0, fontWeight: row.pct >= 100 ? 700 : 600 }}>
+                {row.pct}%
+              </div>
               <div style={{ width: 12, fontSize: 10, color: '#cbd5e1', flexShrink: 0 }}>{row.isDept ? '›' : '💬'}</div>
             </div>
             {!row.isDept && hoverId === row.id && row.lab && (
