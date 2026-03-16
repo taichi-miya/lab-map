@@ -1,4 +1,5 @@
 ﻿import Link from 'next/link'
+import LabCompletenessChart from '@/components/LabCompletenessChart'
 import Image from 'next/image'
 
 export default function LandingPage() {
@@ -1188,100 +1189,8 @@ export default function LandingPage() {
               </div>
             </div>
 
-            <div className="hero-card">
-              <div className="map-toolbar">
-                <div className="toolbar-dot" style={{ background: '#ff5f56' }} />
-                <div className="toolbar-dot" style={{ background: '#febc2e' }} />
-                <div className="toolbar-dot" style={{ background: '#27c93f' }} />
-                <span className="toolbar-title">labonavi.com</span>
-              </div>
-
-              <div className="map-panel">
-                <svg
-                  viewBox="0 0 640 320"
-                  xmlns="http://www.w3.org/2000/svg"
-                  style={{
-                    display: 'block',
-                    width: '100%',
-                    background: 'linear-gradient(180deg, #fafdff 0%, #ffffff 100%)',
-                  }}
-                >
-                  <defs>
-                    <radialGradient id="g1" cx="50%" cy="50%" r="50%">
-                      <stop offset="0%" stopColor="#5046E5" stopOpacity="0.22" />
-                      <stop offset="100%" stopColor="#5046E5" stopOpacity="0" />
-                    </radialGradient>
-                    <radialGradient id="g2" cx="50%" cy="50%" r="50%">
-                      <stop offset="0%" stopColor="#06B6D4" stopOpacity="0.24" />
-                      <stop offset="100%" stopColor="#06B6D4" stopOpacity="0" />
-                    </radialGradient>
-                    <radialGradient id="g3" cx="50%" cy="50%" r="50%">
-                      <stop offset="0%" stopColor="#8B5CF6" stopOpacity="0.18" />
-                      <stop offset="100%" stopColor="#8B5CF6" stopOpacity="0" />
-                    </radialGradient>
-                  </defs>
-
-                  <rect x="0" y="0" width="640" height="320" fill="#fff" />
-                  <circle cx="160" cy="78" r="92" fill="url(#g1)" />
-                  <circle cx="452" cy="102" r="108" fill="url(#g2)" />
-                  <circle cx="346" cy="240" r="112" fill="url(#g3)" />
-
-                  <line x1="166" y1="82" x2="264" y2="126" stroke="#cbd5e1" strokeWidth="2" />
-                  <line x1="264" y1="126" x2="366" y2="92" stroke="#cbd5e1" strokeWidth="2" />
-                  <line x1="366" y1="92" x2="472" y2="122" stroke="#cbd5e1" strokeWidth="2" />
-                  <line x1="264" y1="126" x2="230" y2="224" stroke="#cbd5e1" strokeWidth="2" />
-                  <line x1="230" y1="224" x2="360" y2="224" stroke="#cbd5e1" strokeWidth="2" />
-                  <line x1="360" y1="224" x2="500" y2="214" stroke="#cbd5e1" strokeWidth="2" />
-
-                  <g>
-                    <circle cx="166" cy="82" r="13" fill="#5046E5" />
-                    <circle cx="264" cy="126" r="13" fill="#06B6D4" />
-                    <circle cx="366" cy="92" r="13" fill="#5046E5" />
-                    <circle cx="472" cy="122" r="13" fill="#8B5CF6" />
-                    <circle cx="230" cy="224" r="13" fill="#06B6D4" />
-                    <circle cx="360" cy="224" r="13" fill="#5046E5" />
-                    <circle cx="500" cy="214" r="13" fill="#8B5CF6" />
-                  </g>
-
-                  <g fontFamily="Noto Sans JP, sans-serif" fontSize="12" fill="#334155" fontWeight="700">
-                    <rect x="121" y="45" rx="12" ry="12" width="90" height="28" fill="#ffffff" stroke="#e2e8f0" />
-                    <text x="166" y="63" textAnchor="middle">材料系</text>
-
-                    <rect x="221" y="138" rx="12" ry="12" width="86" height="28" fill="#ffffff" stroke="#e2e8f0" />
-                    <text x="264" y="156" textAnchor="middle">化学系</text>
-
-                    <rect x="324" y="54" rx="12" ry="12" width="84" height="28" fill="#ffffff" stroke="#e2e8f0" />
-                    <text x="366" y="72" textAnchor="middle">機械系</text>
-
-                    <rect x="431" y="136" rx="12" ry="12" width="82" height="28" fill="#ffffff" stroke="#e2e8f0" />
-                    <text x="472" y="154" textAnchor="middle">情報系</text>
-
-                    <rect x="188" y="238" rx="12" ry="12" width="84" height="28" fill="#ffffff" stroke="#e2e8f0" />
-                    <text x="230" y="256" textAnchor="middle">電気系</text>
-
-                    <rect x="317" y="238" rx="12" ry="12" width="86" height="28" fill="#ffffff" stroke="#e2e8f0" />
-                    <text x="360" y="256" textAnchor="middle">応物系</text>
-
-                    <rect x="458" y="228" rx="12" ry="12" width="84" height="28" fill="#ffffff" stroke="#e2e8f0" />
-                    <text x="500" y="246" textAnchor="middle">建築系</text>
-                  </g>
-                </svg>
-
-                <div className="map-meta">
-                  <div className="meta-chip">
-                    <div className="meta-label">収録範囲</div>
-                    <div className="meta-value">東北大学 工学部・工学研究科</div>
-                  </div>
-                  <div className="meta-chip">
-                    <div className="meta-label">現在の目的</div>
-                    <div className="meta-value">情報修正・UI改善・要望収集</div>
-                  </div>
-                  <div className="meta-chip">
-                    <div className="meta-label">参加方法</div>
-                    <div className="meta-value">閲覧 / フォーム / Discord</div>
-                  </div>
-                </div>
-              </div>
+<div className="hero-card" style={{ padding: 0, overflow: 'hidden' }}>
+              <LabCompletenessChart />
             </div>
           </div>
         </div>
