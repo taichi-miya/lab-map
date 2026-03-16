@@ -7,7 +7,6 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
-// ── 型 ──────────────────────────────────────────────────────
 type Report = {
   id: string
   type: string | null
@@ -39,7 +38,6 @@ type PendingLog = {
   review_note: string | null
 }
 
-// ── 定数 ────────────────────────────────────────────────────
 const TYPE_LABELS: Record<string, string> = {
   correction: '📝 情報修正依頼',
   feature:    '💡 新機能要望',
@@ -61,6 +59,7 @@ const FIELD_LABELS: Record<string, string> = {
   twitter_url: '🐦 公式X', youtube_channel_url: '▶️ 公式YouTube',
   youtube_video_urls: '▶️ 紹介YouTube', instagram_url_other: '📷 紹介Instagram',
   twitter_url_other: '🐦 紹介X', researchmap: '🔬 researchmap',
+  researchmap_id: '🔬 researchmap',
   instagram_username: '📷 Instagramアカウント名', x_username: '🐦 Xアカウント名',
   publication: '📄 論文・著書',
 }
@@ -76,15 +75,14 @@ const LAB_FIELD_MAP: Record<string, string> = {
   twitter_url_other: 'twitter_url_other',
 }
 const FAC_FIELD_MAP: Record<string, string> = {
-  researchmap: 'researchmap_id', instagram_url: 'instagram_url',
-  twitter_url: 'twitter_url', x_username: 'x_username',
-  instagram_username: 'instagram_url',
+  researchmap_id: 'researchmap_id', researchmap: 'researchmap_id',
+  instagram_url: 'instagram_url', twitter_url: 'twitter_url',
+  x_username: 'x_username', instagram_username: 'instagram_url',
 }
 
 const ADMIN_PASSWORD = process.env.NEXT_PUBLIC_ADMIN_PASSWORD ?? 'admin1234'
 const font = "'Hiragino Kaku Gothic ProN','Hiragino Sans','Noto Sans JP',sans-serif"
 
-// ── サブコンポーネント ────────────────────────────────────────
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div>
@@ -94,14 +92,13 @@ function Row({ label, value }: { label: string; value: string }) {
   )
 }
 
-// ════════════════════════════════════════════════════════════
 export default function AdminPage() {
   const [authed,       setAuthed]       = useState(false)
   const [pw,           setPw]           = useState('')
   const [pwError,      setPwError]      = useState(false)
   const [tab,          setTab]          = useState<'reports' | 'pending'>('pending')
 
-  // ── お問い合わせ ──
+  // お問い合わせ
   const [reports,      setReports]      = useState<Report[]>([])
   const [loadingR,     setLoadingR]     = useState(false)
   const [filterStatus, setFilterStatus] = useState('all')
@@ -109,11 +106,13 @@ export default function AdminPage() {
   const [selected,     setSelected]     = useState<Report | null>(null)
   const [updatingR,    setUpdatingR]    = useState(false)
 
-  // ── 情報提供レビュー ──
+  // 情報提供レビュー
   const [pending,      setPending]      = useState<PendingLog[]>([])
   const [loadingP,     setLoadingP]     = useState(false)
   const [filterPS,     setFilterPS]     = useState<'pending' | 'approved' | 'rejected' | 'all'>('pending')
   const [selectedP,    setSelectedP]    = useState<PendingLog | null>(null)
+  const [checkedIds,   setCheckedIds]   = useState<Set<string>>(new Set())
+  const [bulkLoading,  setBulkLoading]  = useState(false)
   const [reviewNote,   setReviewNote]   = useState('')
   const [updatingP,    setUpdatingP]    = useState(false)
 
@@ -122,7 +121,6 @@ export default function AdminPage() {
     else setPwError(true)
   }
 
-  // ── お問い合わせ取得 ──
   const fetchReports = async () => {
     setLoadingR(true)
     let q = supabase.from('reports').select('*').order('created_at', { ascending: false })
@@ -133,7 +131,6 @@ export default function AdminPage() {
     setLoadingR(false)
   }
 
-  // ── 情報提供ログ取得 ──
   const fetchPending = async () => {
     setLoadingP(true)
     const { data } = await supabase.rpc('get_pending_logs_all', { p_status: filterPS === 'all' ? null : filterPS })
@@ -153,11 +150,9 @@ export default function AdminPage() {
     setUpdatingR(false)
   }
 
-  // ── 承認処理 ──
+  // 承認処理（単体）
   const handleApprove = async (log: PendingLog) => {
-    setUpdatingP(true)
     const now = new Date().toISOString()
-
     if (log.target_type === 'lab') {
       if (MULTI_FIELDS.includes(log.field)) {
         const { data: current } = await supabase.from('labs').select(log.field).eq('id', log.lab_id).single()
@@ -173,12 +168,9 @@ export default function AdminPage() {
         await supabase.from('faculties').update({ [FAC_FIELD_MAP[log.field]]: log.new_value, updated_at: now }).eq('id', log.target_id)
       }
     }
-
     await supabase.from('admin_logs').update({
       status: 'approved', reviewed_by: 'admin', reviewed_at: now,
     }).eq('id', log.id)
-
-    // Discord通知
     await fetch('/api/admin/notify', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -190,13 +182,32 @@ export default function AdminPage() {
         isPending: false, isApprovalNotice: true,
       }),
     })
+  }
 
+  // 一括承認処理
+  const handleBulkApprove = async () => {
+    if (checkedIds.size === 0) return
+    setBulkLoading(true)
+    const targets = pending.filter(p => checkedIds.has(p.id) && p.status === 'pending')
+    for (const log of targets) {
+      await handleApprove(log)
+    }
+    setCheckedIds(new Set())
+    await fetchPending()
+    setSelectedP(null)
+    setBulkLoading(false)
+  }
+
+  // 単体承認ボタン用（updatingP管理付き）
+  const handleApproveSingle = async (log: PendingLog) => {
+    setUpdatingP(true)
+    await handleApprove(log)
     await fetchPending()
     setSelectedP(null)
     setUpdatingP(false)
   }
 
-  // ── 差し戻し処理 ──
+  // 差し戻し処理
   const handleReject = async (log: PendingLog) => {
     setUpdatingP(true)
     const now = new Date().toISOString()
@@ -210,10 +221,16 @@ export default function AdminPage() {
     setUpdatingP(false)
   }
 
-  // ── pendingカウント ──
   const pendingCount = pending.filter(p => p.status === 'pending').length
 
-  // ── ログイン画面 ──
+  // チェックボックス：全選択 / 全解除
+  const allPendingIds = pending.filter(p => p.status === 'pending').map(p => p.id)
+  const isAllChecked  = allPendingIds.length > 0 && allPendingIds.every(id => checkedIds.has(id))
+  const toggleAll = () => {
+    if (isAllChecked) setCheckedIds(new Set())
+    else setCheckedIds(new Set(allPendingIds))
+  }
+
   if (!authed) return (
     <main style={{ minHeight: '100vh', background: '#F9FAFB', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: font }}>
       <div style={{ background: 'white', borderRadius: 16, border: '1.5px solid #E5E7EB', padding: '36px 32px', width: 320 }}>
@@ -231,7 +248,6 @@ export default function AdminPage() {
     </main>
   )
 
-  // ── メイン画面 ──
   return (
     <main style={{ minHeight: '100vh', background: '#F9FAFB', fontFamily: font, color: '#1F2937' }}>
       <header style={{ background: 'white', borderBottom: '1px solid #E5E7EB', padding: '14px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -269,10 +285,10 @@ export default function AdminPage() {
         {/* ══════════ 情報提供レビュータブ ══════════ */}
         {tab === 'pending' && (
           <div>
-            {/* フィルター */}
+            {/* フィルター＋一括承認 */}
             <div style={{ display: 'flex', gap: 8, marginBottom: 16, alignItems: 'center', flexWrap: 'wrap' }}>
               {([['pending','承認待ち'], ['approved','承認済み'], ['rejected','差し戻し済み'], ['all','すべて']] as const).map(([val, label]) => (
-                <button key={val} onClick={() => setFilterPS(val)}
+                <button key={val} onClick={() => { setFilterPS(val); setCheckedIds(new Set()) }}
                   style={{ padding: '5px 14px', borderRadius: 8, border: '1.5px solid',
                     borderColor: filterPS === val ? '#1D4ED8' : '#E5E7EB',
                     background: filterPS === val ? 'rgba(29,78,216,0.07)' : 'white',
@@ -281,6 +297,13 @@ export default function AdminPage() {
                   {label}
                 </button>
               ))}
+              {/* 一括承認ボタン */}
+              {checkedIds.size > 0 && (
+                <button onClick={handleBulkApprove} disabled={bulkLoading}
+                  style={{ padding: '5px 16px', borderRadius: 8, border: 'none', background: bulkLoading ? '#9CA3AF' : '#16A34A', color: 'white', fontSize: 12, fontWeight: 700, cursor: bulkLoading ? 'wait' : 'pointer', fontFamily: font }}>
+                  {bulkLoading ? '処理中...' : `✅ ${checkedIds.size}件を一括承認`}
+                </button>
+              )}
               <button onClick={fetchPending}
                 style={{ marginLeft: 'auto', padding: '5px 12px', borderRadius: 8, border: '1px solid #E5E7EB', background: 'white', fontSize: 12, color: '#6B7280', cursor: 'pointer', fontFamily: font }}>
                 🔄 更新
@@ -305,6 +328,13 @@ export default function AdminPage() {
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                     <thead>
                       <tr style={{ borderBottom: '1px solid #F3F4F6', background: '#F9FAFB' }}>
+                        {/* 全選択チェックボックス */}
+                        <th style={{ padding: '10px 12px', width: 36 }}>
+                          {filterPS === 'pending' && allPendingIds.length > 0 && (
+                            <input type="checkbox" checked={isAllChecked} onChange={toggleAll}
+                              style={{ cursor: 'pointer', width: 14, height: 14 }} />
+                          )}
+                        </th>
                         {['ステータス', '研究室 / 教員', '更新項目', '提案内容（抜粋）', '提案者', '日時', ''].map((h, i) => (
                           <th key={i} style={{ padding: '10px 12px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#9CA3AF', whiteSpace: 'nowrap' }}>{h}</th>
                         ))}
@@ -313,14 +343,28 @@ export default function AdminPage() {
                     <tbody>
                       {pending.map(p => {
                         const isSelected = selectedP?.id === p.id
+                        const isChecked  = checkedIds.has(p.id)
                         const statusStyle = p.status === 'approved'
                           ? { bg: 'rgba(34,197,94,0.10)', color: '#16A34A', label: '承認済み' }
                           : p.status === 'rejected'
                           ? { bg: 'rgba(156,163,175,0.15)', color: '#6B7280', label: '差し戻し済み' }
                           : { bg: 'rgba(245,158,11,0.10)', color: '#D97706', label: '承認待ち' }
                         return (
-                          <tr key={p.id} style={{ borderBottom: '1px solid #F9FAFB', background: isSelected ? '#EFF6FF' : 'white', cursor: 'pointer' }}
+                          <tr key={p.id}
+                            style={{ borderBottom: '1px solid #F9FAFB', background: isChecked ? 'rgba(22,163,74,0.05)' : isSelected ? '#EFF6FF' : 'white', cursor: 'pointer' }}
                             onClick={() => { setSelectedP(isSelected ? null : p); setReviewNote('') }}>
+                            {/* チェックボックス */}
+                            <td style={{ padding: '10px 12px' }} onClick={e => e.stopPropagation()}>
+                              {p.status === 'pending' && (
+                                <input type="checkbox" checked={isChecked}
+                                  onChange={e => {
+                                    const next = new Set(checkedIds)
+                                    e.target.checked ? next.add(p.id) : next.delete(p.id)
+                                    setCheckedIds(next)
+                                  }}
+                                  style={{ cursor: 'pointer', width: 14, height: 14 }} />
+                              )}
+                            </td>
                             <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>
                               <span style={{ fontSize: 11, padding: '3px 8px', borderRadius: 20, background: statusStyle.bg, color: statusStyle.color, fontWeight: 700 }}>
                                 {statusStyle.label}
@@ -365,7 +409,6 @@ export default function AdminPage() {
                     <button onClick={() => { setSelectedP(null); setReviewNote('') }}
                       style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, color: '#9CA3AF', padding: 0 }}>✕</button>
                   </div>
-
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                     <Row label="研究室" value={selectedP.lab_name ?? '—'} />
                     {selectedP.faculty_name && <Row label="教員" value={selectedP.faculty_name} />}
@@ -373,8 +416,6 @@ export default function AdminPage() {
                     <Row label="提案者" value={selectedP.contributor ?? selectedP.guest_name ?? 'ゲスト（匿名）'} />
                     {selectedP.guest_email && <Row label="メール" value={selectedP.guest_email} />}
                     <Row label="日時" value={selectedP.created_at.slice(0, 16).replace('T', ' ')} />
-
-                    {/* 既存値 */}
                     {selectedP.old_value && (
                       <div>
                         <p style={{ fontSize: 11, fontWeight: 700, color: '#9CA3AF', margin: '0 0 4px' }}>現在の値（上書きされます）</p>
@@ -383,16 +424,12 @@ export default function AdminPage() {
                         </p>
                       </div>
                     )}
-
-                    {/* 提案内容 */}
                     <div>
                       <p style={{ fontSize: 11, fontWeight: 700, color: '#9CA3AF', margin: '0 0 4px' }}>提案内容</p>
                       <p style={{ fontSize: 13, color: '#1F2937', margin: 0, background: '#F0FDF4', padding: '10px 12px', borderRadius: 8, wordBreak: 'break-all', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
                         {selectedP.new_value}
                       </p>
                     </div>
-
-                    {/* 差し戻しメモ（差し戻し済みの場合は表示のみ） */}
                     {selectedP.status === 'pending' ? (
                       <div>
                         <p style={{ fontSize: 11, fontWeight: 700, color: '#9CA3AF', margin: '0 0 4px' }}>差し戻し理由（任意）</p>
@@ -403,11 +440,9 @@ export default function AdminPage() {
                     ) : selectedP.review_note ? (
                       <Row label="差し戻し理由" value={selectedP.review_note} />
                     ) : null}
-
-                    {/* アクションボタン（承認待ちのみ表示） */}
                     {selectedP.status === 'pending' && (
                       <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
-                        <button onClick={() => handleApprove(selectedP)} disabled={updatingP}
+                        <button onClick={() => handleApproveSingle(selectedP)} disabled={updatingP}
                           style={{ flex: 1, padding: '10px', borderRadius: 9, border: 'none', background: '#16A34A', color: 'white', fontSize: 13, fontWeight: 700, cursor: updatingP ? 'wait' : 'pointer', fontFamily: font }}>
                           {updatingP ? '処理中...' : '✅ 承認してDBに反映'}
                         </button>
@@ -417,8 +452,6 @@ export default function AdminPage() {
                         </button>
                       </div>
                     )}
-
-                    {/* 承認済み・差し戻し済みの表示 */}
                     {selectedP.status !== 'pending' && (
                       <div style={{ padding: '10px 12px', borderRadius: 9, background: selectedP.status === 'approved' ? 'rgba(34,197,94,0.08)' : 'rgba(156,163,175,0.12)', textAlign: 'center' }}>
                         <p style={{ fontSize: 13, fontWeight: 700, color: selectedP.status === 'approved' ? '#16A34A' : '#6B7280', margin: 0 }}>
@@ -436,7 +469,6 @@ export default function AdminPage() {
         {/* ══════════ お問い合わせタブ ══════════ */}
         {tab === 'reports' && (
           <div>
-            {/* サマリーカード */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 24 }}>
               {Object.entries(REPORT_STATUS).map(([key, { bg, color, label }]) => {
                 const count = reports.filter(r => r.status === key).length
@@ -449,8 +481,6 @@ export default function AdminPage() {
                 )
               })}
             </div>
-
-            {/* フィルター */}
             <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
               <span style={{ fontSize: 12, color: '#6B7280', fontWeight: 600 }}>種別：</span>
               {[['all','すべて'], ['correction','情報修正'], ['feature','機能要望'], ['bug','不具合'], ['other','その他']].map(([val, label]) => (
@@ -464,8 +494,6 @@ export default function AdminPage() {
                 🔄 再読み込み
               </button>
             </div>
-
-            {/* テーブル＋詳細 */}
             <div style={{ display: 'grid', gridTemplateColumns: selected ? '1fr 360px' : '1fr', gap: 16, alignItems: 'start' }}>
               <div style={{ background: 'white', borderRadius: 14, border: '1px solid #E5E7EB', overflow: 'hidden' }}>
                 {loadingR ? (
@@ -513,7 +541,6 @@ export default function AdminPage() {
                   </table>
                 )}
               </div>
-
               {selected && (
                 <div style={{ background: 'white', borderRadius: 14, border: '1.5px solid #3B82F6', padding: '20px', position: 'sticky', top: 20 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
