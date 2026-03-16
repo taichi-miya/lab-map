@@ -95,10 +95,13 @@ function ContributeInner() {
         .order('created_at')
         .then(({ data }) => {
           if (!data) { setFaculties([]); return }
-          const mapped: Faculty[] = data
-            .map((row: { role: string | null; faculties: { id: string; name: string } | null }) => {
-              if (!row.faculties) return null
-              return { id: row.faculties.id, name: row.faculties.name, role: row.role ?? null }
+          // Supabaseはネストされたリレーションを配列で返すため any[] で受け取る
+          const mapped: Faculty[] = (data as any[])
+            .map((row) => {
+              // faculty_labs → faculties は1対1だが配列で来る場合もあるため両方対応
+              const fac = Array.isArray(row.faculties) ? row.faculties[0] : row.faculties
+              if (!fac) return null
+              return { id: fac.id as string, name: fac.name as string, role: (row.role ?? null) as string | null }
             })
             .filter(Boolean) as Faculty[]
           setFaculties(mapped)
