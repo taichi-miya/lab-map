@@ -18,10 +18,14 @@ type Lab = {
   student_count_master: number | null
   student_count_under: number | null
 }
+
+// ── 変更点：lab_id を削除。lab_id は外部の Map で管理する ──
 type Faculty = {
-  id: string; lab_id: string; name: string
+  id: string; name: string
   researchmap_id: string | null; twitter_url: string | null; instagram_url: string | null
 }
+// ─────────────────────────────────────────────────────────
+
 type Crumb = { label: string; dept: string }
 
 // 分母に含める必須項目
@@ -35,21 +39,20 @@ const FAC_REQUIRED: { key: keyof Faculty; label: string }[] = [
 
 // 分母に含めないがあれば分子に加算するボーナス項目
 const LAB_BONUS: { key: keyof Lab; label: string }[] = [
-  { key: 'instagram_url',       label: '公式Instagram'    },
-  { key: 'twitter_url',         label: '公式X'            },
-  { key: 'youtube_channel_url', label: 'YouTubeチャンネル' },
-  { key: 'intro_url',           label: '紹介ページURL'     },
-  { key: 'student_count',       label: '学生数（全体）'    },
-  { key: 'student_count_doc',    label: '学生数（博士）'   },
-  { key: 'student_count_master', label: '学生数（修士）'   },
-  { key: 'student_count_under',  label: '学生数（学部）'   },
+  { key: 'instagram_url',        label: '公式Instagram'    },
+  { key: 'twitter_url',          label: '公式X'            },
+  { key: 'youtube_channel_url',  label: 'YouTubeチャンネル' },
+  { key: 'intro_url',            label: '紹介ページURL'     },
+  { key: 'student_count',        label: '学生数（全体）'    },
+  { key: 'student_count_doc',    label: '学生数（博士）'    },
+  { key: 'student_count_master', label: '学生数（修士）'    },
+  { key: 'student_count_under',  label: '学生数（学部）'    },
 ]
 const FAC_BONUS: { key: keyof Faculty; label: string }[] = [
   { key: 'twitter_url',   label: 'X（教員）'         },
   { key: 'instagram_url', label: 'Instagram（教員）' },
 ]
 
-// tooltip表示用
 const LAB_FIELDS = [...LAB_REQUIRED, ...LAB_BONUS]
 const FAC_FIELDS = [...FAC_REQUIRED, ...FAC_BONUS]
 
@@ -66,7 +69,6 @@ function calcFacFilled(facs: Faculty[]): number {
   return n
 }
 
-// 分母は必須項目のみ・分子はボーナス込み → 100%超えあり
 function labScore(lab: Lab, facs: Faculty[]): { filled: number; slots: number; pct: number } {
   const filled = calcFilled(lab) + calcFacFilled(facs)
   const slots  = LAB_REQUIRED.length + facs.length * FAC_REQUIRED.length
@@ -74,18 +76,19 @@ function labScore(lab: Lab, facs: Faculty[]): { filled: number; slots: number; p
   return { filled, slots, pct }
 }
 
-function deptScore(dLabs: Lab[], faculties: Faculty[]): { filled: number; slots: number; pct: number } {
+// ── 変更点：labFacMap（lab_id → Faculty[]）を受け取る ──
+function deptScore(dLabs: Lab[], labFacMap: Map<string, Faculty[]>): { filled: number; slots: number; pct: number } {
   let filled = 0, slots = 0
   for (const lab of dLabs) {
-    const facs = faculties.filter(f => f.lab_id === lab.id)
+    const facs = labFacMap.get(lab.id) ?? []
     filled += calcFilled(lab) + calcFacFilled(facs)
     slots  += LAB_REQUIRED.length + facs.length * FAC_REQUIRED.length
   }
   const pct = slots === 0 ? 0 : Math.round(filled / slots * 1000) / 10
   return { filled, slots, pct }
 }
+// ─────────────────────────────────────────────────────────────────────────────
 
-// ── 変更点：必須・推奨を分けて返す ──────────────────────────────────────────
 type DetailItem = { label: string; required: boolean }
 
 function calcDetail(lab: Lab, facs: Faculty[]): {
@@ -97,40 +100,35 @@ function calcDetail(lab: Lab, facs: Faculty[]): {
   const missingBonus:    DetailItem[] = []
   const present:         DetailItem[] = []
 
-  // ラボ必須
   for (const f of LAB_REQUIRED) {
     const v = lab[f.key]
     if (v !== null && v !== undefined && String(v) !== '') present.push({ label: f.label, required: true })
     else missingRequired.push({ label: f.label, required: true })
   }
-  // ラボボーナス
   for (const f of LAB_BONUS) {
     const v = lab[f.key]
     if (v !== null && v !== undefined && String(v) !== '') present.push({ label: f.label, required: false })
     else missingBonus.push({ label: f.label, required: false })
   }
-  // 教員必須
   for (const f of FAC_REQUIRED) {
     const filled = facs.filter(fc => fc[f.key] !== null && fc[f.key] !== undefined && String(fc[f.key]) !== '').length
     const total  = facs.length
     if (total === 0) { missingRequired.push({ label: `${f.label}（教員なし）`, required: true }); continue }
-    if (filled === 0)        missingRequired.push({ label: `${f.label} (0/${total}名)`,              required: true })
-    else if (filled < total) missingRequired.push({ label: `${f.label} (${filled}/${total}名・一部)`, required: true })
-    else                     present.push({ label: `${f.label} (${filled}/${total}名)`,              required: true })
+    if (filled === 0)        missingRequired.push({ label: `${f.label} (0/${total}名)`,               required: true })
+    else if (filled < total) missingRequired.push({ label: `${f.label} (${filled}/${total}名・一部)`,  required: true })
+    else                     present.push(        { label: `${f.label} (${filled}/${total}名)`,        required: true })
   }
-  // 教員ボーナス
   for (const f of FAC_BONUS) {
     const filled = facs.filter(fc => fc[f.key] !== null && fc[f.key] !== undefined && String(fc[f.key]) !== '').length
     const total  = facs.length
     if (total === 0) continue
     if (filled === 0)        missingBonus.push({ label: `${f.label} (0/${total}名)`,               required: false })
     else if (filled < total) missingBonus.push({ label: `${f.label} (${filled}/${total}名・一部)`, required: false })
-    else                     present.push({ label: `${f.label} (${filled}/${total}名)`,            required: false })
+    else                     present.push(     { label: `${f.label} (${filled}/${total}名)`,       required: false })
   }
 
   return { missingRequired, missingBonus, present }
 }
-// ─────────────────────────────────────────────────────────────────────────────
 
 function barColor(pct: number) {
   if (pct >= 100) return '#7C3AED'
@@ -152,11 +150,9 @@ function Bar({ pct, delay }: { pct: number; delay: number }) {
   )
 }
 
-// ── 変更点：LabTooltip を必須・推奨カラー分けに刷新 ────────────────────────
 function LabTooltip({ lab, facs, score }: { lab: Lab; facs: Faculty[]; score: { filled: number; slots: number; pct: number } }) {
   const { missingRequired, missingBonus, present } = calcDetail(lab, facs)
 
-  // ドット＋テキストの1行コンポーネント
   const Row = ({ label, dot }: { label: string; dot: string }) => (
     <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '2px 0' }}>
       <div style={{ width: 5, height: 5, borderRadius: '50%', background: dot, flexShrink: 0 }} />
@@ -171,16 +167,11 @@ function LabTooltip({ lab, facs, score }: { lab: Lab; facs: Faculty[]; score: { 
       padding: '10px 12px', fontSize: 10, zIndex: 200, width: 230,
       pointerEvents: 'none', boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
     }}>
-      {/* 吹き出し矢印 */}
       <div style={{ position: 'absolute', left: -5, top: '50%', transform: 'translateY(-50%)', width: 0, height: 0, borderTop: '5px solid transparent', borderBottom: '5px solid transparent', borderRight: '5px solid #1e293b' }} />
-
-      {/* タイトル */}
       <p style={{ fontWeight: 700, fontSize: 11, margin: '0 0 4px', lineHeight: 1.4 }}>{lab.name}</p>
       <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.45)', margin: '0 0 8px' }}>
         {score.filled} / {score.slots} 必須項目（SNS等はボーナス）
       </p>
-
-      {/* 未入力・必須 */}
       {missingRequired.length > 0 && (
         <>
           <p style={{ margin: '0 0 3px', fontSize: 9, fontWeight: 700, color: '#f87171', display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -189,8 +180,6 @@ function LabTooltip({ lab, facs, score }: { lab: Lab; facs: Faculty[]; score: { 
           {missingRequired.map(item => <Row key={item.label} label={item.label} dot="#f87171" />)}
         </>
       )}
-
-      {/* 未入力・推奨（ボーナス） */}
       {missingBonus.length > 0 && (
         <>
           <p style={{ margin: `${missingRequired.length > 0 ? 7 : 0}px 0 3px`, fontSize: 9, fontWeight: 700, color: '#fbbf24', display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -199,8 +188,6 @@ function LabTooltip({ lab, facs, score }: { lab: Lab; facs: Faculty[]; score: { 
           {missingBonus.map(item => <Row key={item.label} label={item.label} dot="#fbbf24" />)}
         </>
       )}
-
-      {/* 入力済み */}
       {present.length > 0 && (
         <>
           <p style={{ margin: `${(missingRequired.length > 0 || missingBonus.length > 0) ? 7 : 0}px 0 3px`, fontSize: 9, fontWeight: 700, color: '#4ade80', display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -214,11 +201,12 @@ function LabTooltip({ lab, facs, score }: { lab: Lab; facs: Faculty[]; score: { 
     </div>
   )
 }
-// ─────────────────────────────────────────────────────────────────────────────
 
 export default function LabCompletenessChart() {
   const [labs,      setLabs]      = useState<Lab[]>([])
-  const [faculties, setFaculties] = useState<Faculty[]>([])
+  // ── 変更点：faculties[] の代わりに lab_id → Faculty[] の Map で持つ ──
+  const [labFacMap, setLabFacMap] = useState<Map<string, Faculty[]>>(new Map())
+  // ─────────────────────────────────────────────────────────────────────
   const [stack,     setStack]     = useState<Crumb[]>([])
   const [loading,   setLoading]   = useState(true)
   const [hoverId,   setHoverId]   = useState<string | null>(null)
@@ -226,10 +214,32 @@ export default function LabCompletenessChart() {
   useEffect(() => {
     Promise.all([
       sb.from('labs').select('id,name,dept,faculty_name,summary_text,lab_url,instagram_url,twitter_url,youtube_channel_url,intro_url,student_count,student_count_doc,student_count_master,student_count_under').not('dept', 'is', null),
-      sb.from('faculties').select('id,lab_id,name,researchmap_id,twitter_url,instagram_url'),
-    ]).then(([lr, fr]) => {
+      // ── 変更点：faculty_labs 経由で lab_id と教員情報を一括取得 ──
+      sb.from('faculty_labs').select('lab_id, faculties(id, name, researchmap_id, twitter_url, instagram_url)'),
+    ]).then(([lr, flr]) => {
       if (lr.data) setLabs(lr.data)
-      if (fr.data) setFaculties(fr.data)
+
+      // faculty_labs の結果を lab_id → Faculty[] の Map に変換
+      if (flr.data) {
+        const map = new Map<string, Faculty[]>()
+        for (const row of flr.data as any[]) {
+          const labId = row.lab_id as string
+          // Supabaseはネストリレーションを配列で返すことがある
+          const rawFac = Array.isArray(row.faculties) ? row.faculties[0] : row.faculties
+          if (!rawFac) continue
+          const fac: Faculty = {
+            id:             rawFac.id,
+            name:           rawFac.name,
+            researchmap_id: rawFac.researchmap_id ?? null,
+            twitter_url:    rawFac.twitter_url    ?? null,
+            instagram_url:  rawFac.instagram_url  ?? null,
+          }
+          if (!map.has(labId)) map.set(labId, [])
+          map.get(labId)!.push(fac)
+        }
+        setLabFacMap(map)
+      }
+
       setLoading(false)
     })
   }, [])
@@ -245,7 +255,8 @@ export default function LabCompletenessChart() {
       const depts = [...new Set(labs.map(l => l.dept))].sort()
       return depts.map(dept => {
         const dLabs = labs.filter(l => l.dept === dept)
-        const { filled, slots, pct } = deptScore(dLabs, faculties)
+        // ── 変更点：labFacMap を渡す ──
+        const { filled, slots, pct } = deptScore(dLabs, labFacMap)
         return {
           id: dept, label: dept,
           sub: `${dLabs.length}研究室`,
@@ -258,7 +269,8 @@ export default function LabCompletenessChart() {
       return labs
         .filter(l => l.dept === currentDept)
         .map(lab => {
-          const facs  = faculties.filter(f => f.lab_id === lab.id)
+          // ── 変更点：labFacMap から取得 ──
+          const facs  = labFacMap.get(lab.id) ?? []
           const score = labScore(lab, facs)
           return {
             id: lab.id, label: lab.name,
@@ -313,7 +325,6 @@ export default function LabCompletenessChart() {
             </div>
           ))}
         </div>
-        {/* ── 変更点：凡例にも必須・推奨の凡例を追加 ── */}
         <div style={{ display: 'flex', gap: 10, width: '100%', alignItems: 'center', marginTop: 2 }}>
           <span style={{ fontSize: 10, color: '#94a3b8' }}>ポップアップ：</span>
           {[
