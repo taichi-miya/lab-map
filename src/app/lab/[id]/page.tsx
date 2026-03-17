@@ -3,6 +3,47 @@ import Link from 'next/link'
 import PinButton from '@/components/PinButton'
 import { getClusterStyle } from '@/lib/clusters'
 
+// ── 2軸チャートコンポーネント ──────────────────────────────────────────────
+function AxisChart({ axisX, axisY, color }: { axisX: number; axisY: number; color: string }) {
+  const SIZE = 160
+  const CENTER = SIZE / 2
+  const RANGE = 0.25 // 表示するスコアの範囲（±0.25でスケーリング）
+  const clamp = (v: number) => Math.max(-RANGE, Math.min(RANGE, v))
+  const px = CENTER + (clamp(axisX) / RANGE) * (CENTER - 16)
+  const py = CENTER - (clamp(axisY) / RANGE) * (CENTER - 16) // Y軸は上が正
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+      <p style={{ fontSize: 11, fontWeight: 700, color: '#8FA1AE', margin: 0, letterSpacing: '0.08em', fontFamily: "'Sora',sans-serif" }}>
+        研究スタイル
+      </p>
+      <div style={{ position: 'relative', width: SIZE, height: SIZE }}>
+        <svg width={SIZE} height={SIZE} style={{ position: 'absolute', top: 0, left: 0 }}>
+          {/* 背景の4象限 */}
+          <rect x={0} y={0} width={CENTER} height={CENTER} fill="rgba(95,175,198,0.04)" />
+          <rect x={CENTER} y={0} width={CENTER} height={CENTER} fill="rgba(95,175,198,0.08)" />
+          <rect x={0} y={CENTER} width={CENTER} height={CENTER} fill="rgba(95,175,198,0.08)" />
+          <rect x={CENTER} y={CENTER} width={CENTER} height={CENTER} fill="rgba(95,175,198,0.04)" />
+          {/* 軸線 */}
+          <line x1={CENTER} y1={4} x2={CENTER} y2={SIZE - 4} stroke="#DCE8EE" strokeWidth={1} />
+          <line x1={4} y1={CENTER} x2={SIZE - 4} y2={CENTER} stroke="#DCE8EE" strokeWidth={1} />
+          {/* 外枠 */}
+          <rect x={0.5} y={0.5} width={SIZE - 1} height={SIZE - 1} rx={12} fill="none" stroke="#DCE8EE" strokeWidth={1} />
+          {/* プロット点 */}
+          <circle cx={px} cy={py} r={7} fill={color} opacity={0.2} />
+          <circle cx={px} cy={py} r={4} fill={color} />
+        </svg>
+        {/* 軸ラベル */}
+        <span style={{ position: 'absolute', top: 4, left: '50%', transform: 'translateX(-50%)', fontSize: 9, color: '#8FA1AE', fontFamily: "'Noto Sans JP',sans-serif", whiteSpace: 'nowrap' }}>実験・フィールド</span>
+        <span style={{ position: 'absolute', bottom: 4, left: '50%', transform: 'translateX(-50%)', fontSize: 9, color: '#8FA1AE', fontFamily: "'Noto Sans JP',sans-serif", whiteSpace: 'nowrap' }}>理論・計算</span>
+        <span style={{ position: 'absolute', left: 4, top: '50%', transform: 'translateY(-50%)', fontSize: 9, color: '#8FA1AE', fontFamily: "'Noto Sans JP',sans-serif", whiteSpace: 'nowrap' }}>基礎</span>
+        <span style={{ position: 'absolute', right: 4, top: '50%', transform: 'translateY(-50%)', fontSize: 9, color: '#8FA1AE', fontFamily: "'Noto Sans JP',sans-serif", whiteSpace: 'nowrap' }}>応用</span>
+      </div>
+    </div>
+  )
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 export default async function LabDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
 
@@ -24,16 +65,12 @@ export default async function LabDetail({ params }: { params: Promise<{ id: stri
     </main>
   )
 
-  // ── 変更点：faculty_labs 経由で教員を取得 ──────────────────────────────
-  // role は faculty_labs 側に移動したため、ネストして取得する
   const { data: facultyLabRows } = await supabase
     .from('faculty_labs')
     .select('role, faculties(id, name, researchmap_id, twitter_url, instagram_url, x_username)')
     .eq('lab_id', id)
     .order('created_at')
 
-  // 表示用に整形（role を faculty_labs から取り込む）
-  // Supabaseはネストリレーションを配列で型推論するため unknown 経由でキャスト
   type FacultyRow = {
     id: string; name: string; role: string | null
     researchmap_id: string | null; twitter_url: string | null
@@ -42,7 +79,6 @@ export default async function LabDetail({ params }: { params: Promise<{ id: stri
   const faculties = (facultyLabRows ?? [])
     .map(row => {
       const rawFac = row.faculties
-      // 配列で来た場合は先頭要素を使う
       const fac = (Array.isArray(rawFac) ? rawFac[0] : rawFac) as unknown as {
         id: string; name: string; researchmap_id: string | null
         twitter_url: string | null; instagram_url: string | null; x_username: string | null
@@ -51,7 +87,6 @@ export default async function LabDetail({ params }: { params: Promise<{ id: stri
       return { ...fac, role: (row.role ?? null) as string | null } satisfies FacultyRow
     })
     .filter((f): f is FacultyRow => f !== null)
-  // ─────────────────────────────────────────────────────────────────────────
 
   const { data: edgesA } = await supabase
     .from('edges')
@@ -93,6 +128,8 @@ export default async function LabDetail({ params }: { params: Promise<{ id: stri
   const contactUrl = `/contact?type=correction&lab_id=${id}&lab_name=${encodeURIComponent(lab.name)}`
   const contributeUrl = `/contribute?lab_id=${id}&lab_name=${encodeURIComponent(lab.name)}`
 
+  const hasAxisData = lab.axis_x != null && lab.axis_y != null
+
   return (
     <>
       <style>{`
@@ -120,6 +157,7 @@ export default async function LabDetail({ params }: { params: Promise<{ id: stri
           .fix-footer { flex-direction: column !important; align-items: flex-start !important; }
           .meta-text { word-break: break-all !important; white-space: normal !important; }
           .contribute-bar { flex-direction: column !important; align-items: flex-start !important; }
+          .axis-chart-row { flex-direction: column !important; align-items: flex-start !important; }
         }
       `}</style>
 
@@ -238,7 +276,33 @@ export default async function LabDetail({ params }: { params: Promise<{ id: stri
                           </span>
                         )}
                       </div>
+                      {/* ボタン順：SNS（X・Instagram）→ researchmap */}
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        {xUrl && (
+                          <a href={xUrl} target="_blank" rel="noopener noreferrer" title="X (Twitter)" className="sns-btn" style={{
+                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                            width: 30, height: 30, borderRadius: 8,
+                            background: '#000', flexShrink: 0, transition: 'opacity .15s',
+                          }}>
+                            <svg width={13} height={13} viewBox="0 0 24 24" fill="white">
+                              <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.737-8.835L1.254 2.25H8.08l4.253 5.622 5.911-5.622Zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                            </svg>
+                          </a>
+                        )}
+                        {fac.instagram_url && (
+                          <a href={fac.instagram_url} target="_blank" rel="noopener noreferrer" title="Instagram" className="sns-btn" style={{
+                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                            width: 30, height: 30, borderRadius: 8, flexShrink: 0,
+                            background: 'linear-gradient(135deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)',
+                            transition: 'opacity .15s',
+                          }}>
+                            <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                              <rect x="2" y="2" width="20" height="20" rx="5"/>
+                              <circle cx="12" cy="12" r="4"/>
+                              <circle cx="17.5" cy="6.5" r="0.5" fill="white" stroke="none"/>
+                            </svg>
+                          </a>
+                        )}
                         {rmUrl ? (
                           <a href={rmUrl} target="_blank" rel="noopener noreferrer" title="researchmapを開く" className="rm-btn" style={{
                             display: 'inline-flex', alignItems: 'center', gap: 5,
@@ -268,31 +332,6 @@ export default async function LabDetail({ params }: { params: Promise<{ id: stri
                             </svg>
                             researchmap
                           </div>
-                        )}
-                        {xUrl && (
-                          <a href={xUrl} target="_blank" rel="noopener noreferrer" title="X (Twitter)" className="sns-btn" style={{
-                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                            width: 30, height: 30, borderRadius: 8,
-                            background: '#000', flexShrink: 0, transition: 'opacity .15s',
-                          }}>
-                            <svg width={13} height={13} viewBox="0 0 24 24" fill="white">
-                              <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.737-8.835L1.254 2.25H8.08l4.253 5.622 5.911-5.622Zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
-                            </svg>
-                          </a>
-                        )}
-                        {fac.instagram_url && (
-                          <a href={fac.instagram_url} target="_blank" rel="noopener noreferrer" title="Instagram" className="sns-btn" style={{
-                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                            width: 30, height: 30, borderRadius: 8, flexShrink: 0,
-                            background: 'linear-gradient(135deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)',
-                            transition: 'opacity .15s',
-                          }}>
-                            <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                              <rect x="2" y="2" width="20" height="20" rx="5"/>
-                              <circle cx="12" cy="12" r="4"/>
-                              <circle cx="17.5" cy="6.5" r="0.5" fill="white" stroke="none"/>
-                            </svg>
-                          </a>
                         )}
                       </div>
                     </div>
@@ -338,6 +377,55 @@ export default async function LabDetail({ params }: { params: Promise<{ id: stri
           {/* 研究概要 */}
           <div style={{ borderTop: '1px solid #DCE8EE', paddingTop: 22 }}>
             <p style={{ fontSize: 11, fontWeight: 700, color: '#8FA1AE', marginBottom: 12, letterSpacing: '0.08em', fontFamily: "'Sora',sans-serif" }}>研究概要</p>
+
+            {/* 2軸チャート */}
+            {hasAxisData && (
+              <div className="axis-chart-row" style={{
+                display: 'flex', alignItems: 'center', gap: 24,
+                marginBottom: 20, padding: '16px 20px', borderRadius: 16,
+                background: '#F3FBFD', border: '1px solid #DCE8EE',
+              }}>
+                <AxisChart axisX={lab.axis_x} axisY={lab.axis_y} color={clusterColor} />
+                <div style={{ flex: 1 }}>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: '#8FA1AE', margin: '0 0 10px', letterSpacing: '0.08em', fontFamily: "'Sora',sans-serif" }}>
+                    スコア
+                  </p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <div>
+                      <p style={{ fontSize: 11, color: '#8FA1AE', margin: '0 0 4px', fontFamily: "'Noto Sans JP',sans-serif" }}>基礎 ↔ 応用</p>
+                      <div style={{ height: 6, borderRadius: 99, background: '#DCE8EE', overflow: 'hidden' }}>
+                        <div style={{
+                          height: '100%', borderRadius: 99,
+                          background: clusterColor,
+                          width: `${Math.round(((lab.axis_x + 0.25) / 0.5) * 100)}%`,
+                          transition: 'width 0.5s ease',
+                        }} />
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 2 }}>
+                        <span style={{ fontSize: 9, color: '#B0BEC5', fontFamily: "'Noto Sans JP',sans-serif" }}>基礎</span>
+                        <span style={{ fontSize: 9, color: '#B0BEC5', fontFamily: "'Noto Sans JP',sans-serif" }}>応用</span>
+                      </div>
+                    </div>
+                    <div>
+                      <p style={{ fontSize: 11, color: '#8FA1AE', margin: '0 0 4px', fontFamily: "'Noto Sans JP',sans-serif" }}>理論 ↔ 実験</p>
+                      <div style={{ height: 6, borderRadius: 99, background: '#DCE8EE', overflow: 'hidden' }}>
+                        <div style={{
+                          height: '100%', borderRadius: 99,
+                          background: clusterColor,
+                          width: `${Math.round(((lab.axis_y + 0.15) / 0.3) * 100)}%`,
+                          transition: 'width 0.5s ease',
+                        }} />
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 2 }}>
+                        <span style={{ fontSize: 9, color: '#B0BEC5', fontFamily: "'Noto Sans JP',sans-serif" }}>理論</span>
+                        <span style={{ fontSize: 9, color: '#B0BEC5', fontFamily: "'Noto Sans JP',sans-serif" }}>実験</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {bullets.length > 0 && (
               <div style={{
                 background: chipBg, borderRadius: 14, padding: '14px 18px',

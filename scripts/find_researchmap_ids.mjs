@@ -28,8 +28,13 @@ function sleep(ms) {
 // ============================
 async function searchResearchmap(name) {
   const query = encodeURIComponent(name.trim());
-  const url = `https://api.researchmap.jp/researchers?q=${query}&format=json&limit=5`;
-  const res = await fetch(url, { headers: { Accept: "application/json" } });
+  const url = `https://researchmap.jp/researchers?format=json&q=${query}&limit=5`;
+  const res = await fetch(url, {
+    headers: {
+      Accept: "application/json",
+      "User-Agent": "Mozilla/5.0",
+    },
+  });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const json = await res.json();
   return json.items ?? [];
@@ -91,14 +96,18 @@ async function main() {
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-  // 対象を取得
+  // ── 変更点 ──────────────────────────────────────────────────────────────
+  // faculties.lab_id は削除済み。
+  // 所属研究室名は faculty_labs → labs の経路でネスト取得する。
+  // 教員が複数研究室に所属する場合、is_primary=true の研究室名を優先表示する。
   let query = supabase
     .from("faculties")
-    .select("id, name, lab_id, researchmap_id, rm_status, labs(name)");
+    .select("id, name, researchmap_id, rm_status, faculty_labs(lab_id, is_primary, labs(name))");
 
   if (!isForce) {
     query = query.eq("rm_status", "pending");
   }
+  // ────────────────────────────────────────────────────────────────────────
 
   const { data: faculties, error } = await query;
   if (error) {
@@ -111,8 +120,17 @@ async function main() {
   let cntFound = 0, cntAmbiguous = 0, cntNotFound = 0, cntError = 0;
 
   for (const faculty of faculties) {
-    const { id, name, labs: lab } = faculty;
-    process.stdout.write(`  ${name}（${lab?.name ?? ""}）... `);
+    const { id, name, faculty_labs } = faculty;
+
+    // ── 変更点 ──────────────────────────────────────────────────────────
+    // is_primary=true の研究室を優先、なければ先頭の研究室名を使う
+    const primaryEntry = (faculty_labs ?? []).find((fl) => fl.is_primary) ?? faculty_labs?.[0];
+    const labName = primaryEntry?.labs?.name ?? "";
+    const labCount = (faculty_labs ?? []).length;
+    const labDisplay = labCount > 1 ? `${labName} 他${labCount - 1}件` : labName;
+    // ────────────────────────────────────────────────────────────────────
+
+    process.stdout.write(`  ${name}（${labDisplay}）... `);
 
     let candidates;
     try {
