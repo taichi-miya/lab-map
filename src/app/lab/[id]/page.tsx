@@ -92,11 +92,16 @@ export default async function LabDetail({ params }: { params: Promise<{ id: stri
     </main>
   )
 
+  const ROLE_ORDER: Record<string, number> = {
+    '教授': 0, '特任教授': 1, '准教授': 2, '特任准教授': 3,
+    '講師': 4, '特任講師': 5, '助教': 6, '特任助教': 7,
+  }
+
   const { data: facultyLabRows } = await supabase
     .from('faculty_labs')
-    .select('role, faculties(id, name, researchmap_id, twitter_url, instagram_url, x_username)')
+    .select('role, is_primary, faculties(id, name, researchmap_id, twitter_url, instagram_url, x_username)')
     .eq('lab_id', id)
-    .order('created_at')
+    .order('is_primary', { ascending: false })
 
   type FacultyRow = {
     id: string; name: string; role: string | null
@@ -104,6 +109,11 @@ export default async function LabDetail({ params }: { params: Promise<{ id: stri
     instagram_url: string | null; x_username: string | null
   }
   const faculties = (facultyLabRows ?? [])
+    .sort((a, b) => {
+      const aOrder = ROLE_ORDER[a.role ?? ''] ?? 99
+      const bOrder = ROLE_ORDER[b.role ?? ''] ?? 99
+      return aOrder - bOrder
+    })
     .map(row => {
       const rawFac = row.faculties
       const fac = (Array.isArray(rawFac) ? rawFac[0] : rawFac) as unknown as {
