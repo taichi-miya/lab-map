@@ -144,6 +144,7 @@ export default async function LabDetail({ params }: { params: Promise<{ id: stri
 
   const { color: clusterColor, chipBg, stroke: strokeColor } = getClusterStyle(lab.cluster_id)
   const clusterName = `クラスタ${lab.cluster_id ?? '不明'}`
+  const depts: string[] = [lab.dept, lab.dept2].filter(Boolean) as string[]
 
   const bullets: string[] = (() => {
     if (!lab.summary_bullets) return []
@@ -225,6 +226,22 @@ export default async function LabDetail({ params }: { params: Promise<{ id: stri
             </span>
             <PinButton labId={id} />
           </div>
+          {depts.length > 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+              {depts.map((d, i) => (
+                <span key={i} style={{
+                  fontSize: 11, fontWeight: 600,
+                  padding: '2px 10px', borderRadius: 999,
+                  background: 'rgba(91,107,121,0.08)',
+                  color: '#5B6B79',
+                  border: '1px solid rgba(91,107,121,0.18)',
+                  fontFamily: "'Noto Sans JP',sans-serif",
+                }}>
+                  {d}
+                </span>
+              ))}
+            </div>
+          )}
           <h1 className="lab-h1" style={{ fontSize: 26, fontWeight: 800, margin: 0, letterSpacing: '-0.03em', lineHeight: 1.25, fontFamily: "'Sora','Noto Sans JP',sans-serif", color: '#1F2D3D' }}>
             {lab.name}
           </h1>
