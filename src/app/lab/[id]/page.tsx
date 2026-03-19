@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import PinButton from '@/components/PinButton'
+import { CompareButton } from '@/components/CompareButton'
 import { getClusterStyle } from '@/lib/clusters'
 import YoutubeCarousel from '@/components/YoutubeCarousel'
 
@@ -245,6 +246,9 @@ export default async function LabDetail({ params }: { params: Promise<{ id: stri
           <h1 className="lab-h1" style={{ fontSize: 26, fontWeight: 800, margin: 0, letterSpacing: '-0.03em', lineHeight: 1.25, fontFamily: "'Sora','Noto Sans JP',sans-serif", color: '#1F2D3D' }}>
             {lab.name}
           </h1>
+          <div style={{ marginTop: 12 }}>
+            <CompareButton labId={lab.id} labName={lab.name} size="medium" />
+          </div>
         </div>
 
         {/* ② STAFF */}

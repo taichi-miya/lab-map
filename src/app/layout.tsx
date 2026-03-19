@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
 import { ClerkProvider } from '@clerk/nextjs'
+import { CompareProvider } from '@/contexts/CompareContext'
+import { CompareBar } from '@/components/CompareBar'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -23,9 +25,14 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <ClerkProvider>
-      <html lang="ja">
-        <body>{children}</body>
-      </html>
+      <CompareProvider>
+        <html lang="ja">
+          <body>
+            {children}
+            <CompareBar />
+          </body>
+        </html>
+      </CompareProvider>
     </ClerkProvider>
   )
 }

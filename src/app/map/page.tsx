@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { usePins } from '@/hooks/usePins'
 import { SignInButton, SignUpButton, UserButton, useUser } from '@clerk/nextjs'
 import Link from 'next/link'
+import { CompareButton } from '@/components/CompareButton'
 
 type Lab = {
   id: string
@@ -589,6 +590,7 @@ export default function ExplorePage() {
             )}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+            <CompareButton labId={lab.id} labName={lab.name} size="small" />
             {pinned && (
               <button onClick={() => setPreview(null)} title="カードを閉じる"
                 style={{ width: 30, height: 30, borderRadius: 8, border: '1px solid #DCE8EE', background: 'white', cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#8FA1AE', transition: 'all 0.15s' }}
